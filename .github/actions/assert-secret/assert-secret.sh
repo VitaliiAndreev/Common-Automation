@@ -15,7 +15,7 @@ set -euo pipefail
 value="${1-}"
 name="${2-}"
 
-if [ -z "${name}" ]; then
+if [[ -z "${name}" ]]; then
     echo "::error::assert-secret.sh: missing required <name> argument" >&2
     exit 2
 fi
@@ -24,7 +24,7 @@ fi
 # values the same way [string]::IsNullOrWhiteSpace does in .NET.
 trimmed="$(printf '%s' "${value}" | tr -d '[:space:]')"
 
-if [ -z "${trimmed}" ]; then
+if [[ -z "${trimmed}" ]]; then
     echo "::error::${name} secret is not set. Add it under Settings -> Secrets and variables -> Actions." >&2
     exit 1
 fi

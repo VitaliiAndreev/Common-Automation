@@ -14,16 +14,21 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 
 ## Actions
 
-| Action                                  | Purpose                                                            |
-|-----------------------------------------|--------------------------------------------------------------------|
-| `actions/assert-secret/`                | Fails a job with a clear message when a required secret is empty. |
-| `actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
+| Action                                          | Purpose                                                           |
+|-------------------------------------------------|-------------------------------------------------------------------|
+| `.github/actions/assert-secret/`                | Fails a job with a clear message when a required secret is empty. |
+| `.github/actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
 
 ## Local development
 
-Shell logic is extracted into `*.sh` files alongside each action and unit-
-tested with [bats-core](https://github.com/bats-core/bats-core). Static
-analysis is `shellcheck`.
+Production bash (composite-action logic) is extracted into `*.sh`
+files alongside each action and unit-tested with
+[bats-core](https://github.com/bats-core/bats-core). Static analysis
+is `shellcheck` at its strictest setting (`--severity=style
+--enable=all`).
+
+Runner bash (maintainer-side dev scripts) lives under `scripts/` and
+shares the same lint bar.
 
 Run the test suite from the repo root:
 
@@ -38,14 +43,36 @@ pushing to catch failures locally. Windows users can double-click
 
 ## Consuming
 
-Reference from another repo's workflow:
+### Atomic actions
+
+Reference any action directly from another repo's workflow:
 
 ```yaml
-- uses: VitaliiAndreev/GitHub-Common/actions/assert-secret@v1
+- uses: VitaliiAndreev/GitHub-Common/.github/actions/assert-secret@v1
   with:
     value: ${{ secrets.PSGALLERY_API_KEY }}
     name: PSGALLERY_API_KEY
 ```
+
+### Reusable workflow: ci-bash
+
+For repos that want the same lint + bats recipe applied to their own
+bash, call the `ci-bash.yml` reusable workflow:
+
+```yaml
+jobs:
+  bash:
+    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@v1
+```
+
+No inputs needed by default - the workflow scans the caller's
+`.github/actions/` (production) and `scripts/` (runner) directories.
+Missing directories are skipped silently, so a repo that has only one
+or the other still works without configuration.
+
+Override `bats-version` if you need to pin to a specific bats release.
+
+### Pinning
 
 Use `@v1` for the stable tag once published; pin to `@master` during
 iteration, or to a SHA for maximum reproducibility.
@@ -54,17 +81,19 @@ iteration, or to a SHA for maximum reproducibility.
 
 ```
 GitHub-Common/
-├── .github/workflows/ci.yml         # shellcheck + bats on PR/push
-├── actions/
-│   ├── assert-secret/
-│   │   ├── action.yml               # composite, invokes the .sh
-│   │   ├── assert-secret.sh         # logic
-│   │   └── assert-secret.bats       # unit tests
-│   └── build-ssh-test-image/
-│       ├── action.yml               # composite (Docker buildx + cache)
-│       └── Dockerfile               # Ubuntu 24.04 + openssh-server
+├── .github/
+│   ├── actions/
+│   │   ├── assert-secret/
+│   │   │   ├── action.yml               # composite, invokes the .sh
+│   │   │   ├── assert-secret.sh         # logic
+│   │   │   └── assert-secret.bats       # unit tests
+│   │   └── build-ssh-test-image/
+│   │       ├── action.yml               # composite (Docker buildx + cache)
+│   │       └── Dockerfile               # Ubuntu 24.04 + openssh-server
+│   └── workflows/
+│       └── ci-bash.yml                  # lint + bats on PR/push + workflow_call
 ├── scripts/
-│   ├── run-tests.sh                 # local bats runner (native or Docker)
-│   └── run-tests.bat                # double-clickable Windows launcher
+│   ├── run-tests.sh                     # local bats runner (native or Docker)
+│   └── run-tests.bat                    # double-clickable Windows launcher
 └── README.md
 ```
