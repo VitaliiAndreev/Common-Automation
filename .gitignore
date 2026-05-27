@@ -1,0 +1,8 @@
+# bats local artefacts
+.bats-tmp/
+*.log
+
+# editor noise
+.vscode/
+.idea/
+*.swp
