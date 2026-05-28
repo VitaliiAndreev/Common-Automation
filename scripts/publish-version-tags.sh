@@ -75,12 +75,17 @@ if git rev-parse -q --verify "refs/tags/${version}" >/dev/null; then
   echo "Error: tag ${version} already exists; immutable tags are never re-pointed." >&2
   exit 1
 fi
-git tag -a "${version}" "${sha}" -m "Release ${version}"
+# Lightweight tags (no -a/-s): they point straight at the commit, so on
+# GitHub they inherit that commit's signature/verification. Releases tag
+# GitHub-signed PR-merge commits, which is what gives the "Verified"
+# badge. An annotated tag would instead be checked for its OWN signature
+# and, being unsigned, would show as unverified.
+git tag "${version}" "${sha}"
 git push "${remote}" "${version}"
 echo "Pushed immutable tag ${version}."
 
 # Floating major tag - force-move it forward and force-push.
-git tag -fa "${major}" "${sha}" -m "Update ${major} to ${version}"
+git tag -f "${major}" "${sha}"
 git push "${remote}" "${major}" --force
 echo "Moved ${major} -> ${version} and force-pushed."
 
