@@ -1,0 +1,22 @@
+name: Verify .sh files are executable in the git index
+description: >
+  Fails if any tracked *.sh file is missing the executable bit (mode
+  0644 instead of 0755) in the git index. Catches Windows-authored
+  scripts that would otherwise fail with an opaque EACCES (exit 126)
+  when run directly on Linux runners, and emits a one-line,
+  copy-pasteable fix.
+
+  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  building block for consumers that want the same gate without
+  re-deriving the git ls-files incantation.
+
+runs:
+  using: composite
+  steps:
+    - name: Verify every .sh has +x in the git index
+      shell: bash
+      # All logic lives in check-sh-executable.sh so the check is a
+      # single source of truth - a local pre-push runner can execute
+      # the same file with no drift between CI and local.
+      run: |
+        '${{ github.action_path }}/check-sh-executable.sh'

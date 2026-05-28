@@ -57,6 +57,17 @@ jobs:
         with:
           scan-path: scripts
 
+  # Files authored on Windows land in git as mode 0644 by default. On
+  # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
+  # other direct script execution. The bats job catches this too, but
+  # its symptom ("every test fails with status mismatch") is opaque;
+  # this job gives the same failure a one-line, copy-pasteable fix.
+  check-sh-executable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-sh-executable
+
   bats:
     runs-on: ubuntu-latest
     steps:
