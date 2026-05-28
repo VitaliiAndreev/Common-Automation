@@ -17,8 +17,6 @@
 name: ci-bash
 
 on:
-  push:
-    branches: [master]
   pull_request:
   workflow_call:
     inputs:
