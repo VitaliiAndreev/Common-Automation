@@ -14,6 +14,13 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# The repo whose tracked .sh files get fixed. Defaults to this repo
+# (GitHub-Common); a consuming repo's thin fix-permissions.sh exports
+# GHCOMMON_TARGET_REPO so the shared fix engine heals THAT repo instead
+# - same single-source reuse as run-tests.sh. The fix engine itself
+# always lives here, sourced relative to script_dir below.
+target_repo="${GHCOMMON_TARGET_REPO:-$(cd "${script_dir}/.." && pwd)}"
+
 # Keep the window open on an Explorer double-click (no-op under the
 # .bat launcher, which sets GHCOMMON_NO_PAUSE=1, and in CI/pipes).
 # shellcheck source=./_hold-window.sh
@@ -23,6 +30,8 @@ trap hold_window_open EXIT
 # shellcheck source=../.github/lib/fix-sh-executable.sh
 source "${script_dir}/../.github/lib/fix-sh-executable.sh"
 
-echo "=== fixing +x on tracked .sh files ==="
-fix_sh_executable
+# fix_sh_executable resolves the git toplevel from the current dir, so
+# run it inside the target repo to scope the fix there.
+echo "=== fixing +x on tracked .sh files in ${target_repo} ==="
+(cd "${target_repo}" && fix_sh_executable)
 echo "Done. Review staged mode changes with: git status"

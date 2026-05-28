@@ -22,12 +22,21 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "${script_dir}/.." && pwd)"
+
+# GitHub-Common's own root - where the reusable check helpers live.
+# Helper paths below anchor to this, never to the target repo.
+ghcommon_root="$(cd "${script_dir}/.." && pwd)"
+
+# The repo actually being linted/tested. Defaults to GitHub-Common
+# itself; a consuming repo's thin run-tests.sh exports
+# GHCOMMON_TARGET_REPO so these same helpers check THAT repo instead -
+# single source of truth for the check logic, no per-repo duplication.
+repo_root="${GHCOMMON_TARGET_REPO:-${ghcommon_root}}"
 
 # Resolve the canonical bats version through the same accessor the
 # composite action uses, so local and CI cannot drift. The getter
 # reads .github/lib/versions.env - the single source of truth.
-BATS_IMAGE="bats/bats:$("${repo_root}/.github/lib/get-bats-version.sh")"
+BATS_IMAGE="bats/bats:$("${ghcommon_root}/.github/lib/get-bats-version.sh")"
 SHELLCHECK_IMAGE='koalaman/shellcheck:v0.10.0'
 
 # shellcheck source=./_hold-window.sh
@@ -42,7 +51,7 @@ trap hold_window_open EXIT
 # expected relative to repo_root - both branches cd there first so the
 # native run and the docker mount (-w /work) resolve them identically.
 run_shellcheck_flagged() {
-    local helper="${repo_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
+    local helper="${ghcommon_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
     # shellcheck source=../.github/actions/shellcheck-bash/shellcheck-bash.sh
     source "${helper}"
 
@@ -73,7 +82,7 @@ run_shellcheck_flagged() {
 run_shellcheck_on() {
     local rel_path="$1"
     local label="$2"
-    local helper="${repo_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
+    local helper="${ghcommon_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
 
     echo "=== shellcheck ${label} (${rel_path}) ==="
 
@@ -102,6 +111,12 @@ run_shellcheck_on() {
 # shared executor, mirroring CI's shellcheck-hooks job.
 run_shellcheck_hooks() {
     echo "=== shellcheck hooks (.githooks) ==="
+    # A consuming target repo may have no hooks - skip rather than feed
+    # the linter the unexpanded ".githooks/*" glob (which would error).
+    if [[ ! -d "${repo_root}/.githooks" ]]; then
+        echo "::notice::no .githooks/, skipping"
+        return 0
+    fi
     local files
     files=$(cd "${repo_root}" && printf '%s\n' .githooks/*)
     # shellcheck disable=SC2086  # word-splitting the file list is intentional
@@ -114,7 +129,7 @@ run_check_sh_executable() {
     # git does. Delegates to the same helper the composite action runs
     # so the local and CI gates cannot drift. Run from repo_root so the
     # git index lookup covers the whole repo.
-    local helper="${repo_root}/.github/actions/check-sh-executable/check-sh-executable.sh"
+    local helper="${ghcommon_root}/.github/actions/check-sh-executable/check-sh-executable.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }
