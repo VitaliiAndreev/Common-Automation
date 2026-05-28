@@ -3,7 +3,8 @@
 # Production bash (.github/actions/) and runner bash (scripts/) get
 # separate lint jobs so failures are attributable at a glance and the
 # two categories can diverge later if their bars need to differ. Both
-# currently run at shellcheck's strictest setting.
+# currently run at shellcheck's strictest setting via the
+# shellcheck-bash composite action under .github/actions/.
 #
 # Reusable: other repos call this workflow with no inputs. It scans
 # the caller's `.github/actions/` and `scripts/` directories; missing
@@ -35,22 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Strict shellcheck on .github/actions
-        # -x lets shellcheck follow `source` directives across files.
-        # SC1091 is suppressed because sourced paths are evaluated at
-        # runtime against ${github.action_path}, not at lint time.
-        # --enable=all turns on every optional check; combined with
-        # --severity=style this is shellcheck's strictest setting.
-        run: |
-          files="$(find .github/actions -name '*.sh' 2>/dev/null)"
-          if [[ -z "$files" ]]; then
-              echo "::notice::no .github/actions/**/*.sh files, skipping"
-              exit 0
-          fi
-          shellcheck \
-              --shell=bash --severity=style --enable=all \
-              -x -e SC1091 \
-              $files
+      - uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: .github
 
   # Runner bash: maintainer-side dev scripts (test runners, helpers).
   # Same strict bar as production today; the split exists so the bars
@@ -59,17 +47,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Strict shellcheck on scripts/
-        run: |
-          files="$(find scripts -name '*.sh' 2>/dev/null)"
-          if [[ -z "$files" ]]; then
-              echo "::notice::no scripts/**/*.sh files, skipping"
-              exit 0
-          fi
-          shellcheck \
-              --shell=bash --severity=style --enable=all \
-              -x -e SC1091 \
-              $files
+      - uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: scripts
 
   bats:
     runs-on: ubuntu-latest
