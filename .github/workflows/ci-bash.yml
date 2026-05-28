@@ -35,9 +35,14 @@ on:
         default: ''
 
 jobs:
-  # Production bash: code shipped to consumers via composite actions.
-  # Strictest setting non-negotiable - a regression here ships to
-  # every downstream repo.
+  # Production bash: everything under .github held to the strict bar.
+  # That spans the composite actions in .github/actions/ and the
+  # shared helpers in .github/lib - some consumer-invoked
+  # (get-bats-version.sh, called by the test-bats action) and some
+  # local-only (fix-sh-executable.sh, used by the hook and the
+  # fix-permissions runner). Scanning all of .github covers them
+  # regardless. Strictest setting non-negotiable - a regression in an
+  # action ships to every downstream repo.
   shellcheck-production:
     runs-on: ubuntu-latest
     steps:
