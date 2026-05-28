@@ -44,7 +44,7 @@ jobs:
   shellcheck-production:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: .github
@@ -55,7 +55,7 @@ jobs:
   shellcheck-runners:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: scripts
@@ -69,7 +69,7 @@ jobs:
   shellcheck-hooks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Strict shellcheck on git hooks
         shell: bash
         run: |
@@ -84,13 +84,13 @@ jobs:
   check-sh-executable:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/check-sh-executable
 
   bats:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: ./.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
