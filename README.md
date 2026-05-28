@@ -115,6 +115,8 @@ GitHub-Common/
 │   └── pre-commit                       # auto-+x staged .sh files
 ├── scripts/
 │   ├── run-tests.sh                     # local bats runner (native or Docker)
-│   └── run-tests.bat                    # double-clickable Windows launcher
+│   ├── run-tests.bat                    # double-clickable Windows launcher
+│   ├── setup-hooks.sh                   # one-time: wire up .githooks/
+│   └── setup-hooks.bat                  # double-clickable Windows launcher
 └── README.md
 ```

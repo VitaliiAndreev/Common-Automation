@@ -57,6 +57,22 @@ jobs:
         with:
           scan-path: scripts
 
+  # Git hooks under .githooks/ have no .sh extension (git requires
+  # exact filenames like pre-commit), so the *.sh-globbing
+  # shellcheck-bash action cannot reach them via scan-path. Lint them
+  # explicitly here, sourcing shellcheck-bash.sh only for its canonical
+  # flag set so the strict bar stays single-sourced with the other
+  # shellcheck jobs. shellcheck is preinstalled on ubuntu-latest.
+  shellcheck-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Strict shellcheck on git hooks
+        shell: bash
+        run: |
+          source .github/actions/shellcheck-bash/shellcheck-bash.sh
+          shellcheck "${SHELLCHECK_FLAGS[@]}" -- .githooks/*
+
   # Files authored on Windows land in git as mode 0644 by default. On
   # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
   # other direct script execution. The bats job catches this too, but

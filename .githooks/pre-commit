@@ -10,18 +10,26 @@
 
 set -euo pipefail
 
+# Reuse the shared fix engine so the hook and the manual runner apply
+# the exact same +x fix. The engine lives under .github so the hook
+# depends only on shipped CI helpers, never the maintainer-only
+# scripts/ tree. Sourced (not executed) to get fix_sh_executable
+# without it running over the whole repo - the hook scopes the fix to
+# just the staged files.
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../.github/lib/fix-sh-executable.sh
+source "${hook_dir}/../.github/lib/fix-sh-executable.sh"
+
 # --diff-filter=AM picks up Added and Modified files. Renames keep their
 # previous mode, so a `git mv` from a +x dir does not need fixing.
 staged_sh=$(git diff --cached --name-only --diff-filter=AM | grep -E '\.sh$' || true)
 
-if [[ -z "$staged_sh" ]]; then
+if [[ -z "${staged_sh}" ]]; then
     exit 0
 fi
 
-while IFS= read -r f; do
-    mode=$(git ls-files -s -- "$f" | awk '{print $1}')
-    if [[ "$mode" == "100644" ]]; then
-        echo "pre-commit: auto-fixing +x on $f"
-        git update-index --chmod=+x "$f"
-    fi
-done <<< "$staged_sh"
+# Pass the staged .sh files as args so only what is being committed is
+# touched, never unrelated tracked files. readarray splits the
+# newline-separated list into separate positional arguments.
+readarray -t staged_arr <<< "${staged_sh}"
+fix_sh_executable "${staged_arr[@]}"
