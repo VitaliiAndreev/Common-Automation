@@ -23,10 +23,16 @@ on:
   workflow_call:
     inputs:
       bats-version:
-        description: Version of bats-core to install for the bats job.
+        # Empty default delegates to the bats composite action, which
+        # falls back to .github/lib/versions.env. Single source of truth -
+        # set this input explicitly only to pin a different version
+        # than the canonical one.
+        description: >
+          Override bats-core version. Empty (default) uses the
+          canonical version from .github/lib/versions.env.
         required: false
         type: string
-        default: '1.11.0'
+        default: ''
 
 jobs:
   # Production bash: code shipped to consumers via composite actions.
@@ -55,9 +61,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: bats-core/bats-action@3.0.1
+      - uses: ./.github/actions/test-bats
         with:
-          bats-version: ${{ inputs.bats-version || '1.11.0' }}
-      - name: Run every bats suite in the repo
-        # bats discovers .bats files itself; zero suites is fine.
-        run: bats --recursive .
+          # Pass through to the action; empty value (push/PR triggers,
+          # or workflow_call without override) makes the action read
+          # the canonical version from .github/lib/versions.env.
+          bats-version: ${{ inputs.bats-version }}

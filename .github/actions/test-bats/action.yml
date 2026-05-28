@@ -1,0 +1,46 @@
+name: Run bats suites
+description: >
+  Installs bats-core and runs every *.bats suite under a given path.
+  Pass scan-path to point it at the directory you want covered;
+  default is the repo root, so callers with .bats suites scattered
+  across the repo can use the action with no inputs at all. Missing
+  path / zero suites exits 0 silently (bats's own behaviour).
+
+  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  building block for consumers that want the same bats invocation
+  without re-deriving the install step.
+
+inputs:
+  scan-path:
+    description: Directory (relative to the repo root) to recurse for *.bats files.
+    required: false
+    default: '.'
+  bats-version:
+    description: >
+      Override bats-core version. Empty (default) falls back to
+      .github/lib/versions.env so the canonical version stays
+      single-sourced across this action, ci-bash.yml, and
+      scripts/run-tests.sh.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - id: resolve-version
+      shell: bash
+      # Empty bats-version means "use the canonical version". The
+      # getter next to versions.env implements override-or-canonical.
+      # ${{ github.action_path }} is this action's own checked-out dir
+      # (.github/actions/test-bats); ../../lib reaches the shared-helper
+      # dir where get-bats-version.sh and versions.env live - resolves
+      # correctly in both local and cross-repo consumption.
+      run: |
+        version="$('${{ github.action_path }}/../../lib/get-bats-version.sh' '${{ inputs.bats-version }}')"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+    - uses: bats-core/bats-action@3.0.1
+      with:
+        bats-version: ${{ steps.resolve-version.outputs.version }}
+    - name: Run bats --recursive ${{ inputs.scan-path }}
+      shell: bash
+      run: bats --recursive '${{ inputs.scan-path }}'

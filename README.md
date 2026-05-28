@@ -17,6 +17,7 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 | Action                                          | Purpose                                                           |
 |-------------------------------------------------|-------------------------------------------------------------------|
 | `.github/actions/assert-secret/`                | Fails a job with a clear message when a required secret is empty. |
+| `.github/actions/test-bats/`                    | Installs bats-core and runs every *.bats suite under a given path. |
 | `.github/actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
 
 ## Local development
@@ -99,9 +100,11 @@ GitHub-Common/
 │   │   │   ├── action.yml               # composite, invokes the .sh
 │   │   │   ├── assert-secret.sh         # logic
 │   │   │   └── assert-secret.bats       # unit tests
-│   │   └── build-ssh-test-image/
-│   │       ├── action.yml               # composite (Docker buildx + cache)
-│   │       └── Dockerfile               # Ubuntu 24.04 + openssh-server
+│   │   ├── test-bats/
+│   │   │   └── action.yml               # composite: install bats-core, run --recursive
+│   │   ├── build-ssh-test-image/
+│   │   │   ├── action.yml               # composite (Docker buildx + cache)
+│   │   │   └── Dockerfile               # Ubuntu 24.04 + openssh-server
 │   └── workflows/
 │       └── ci-bash.yml                  # lint + bats on PR/push + workflow_call
 ├── .githooks/
