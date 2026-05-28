@@ -38,15 +38,22 @@ source "${lib_dir}/../actions/check-sh-executable/check-sh-executable.sh"
 # Re-stages with +x every .sh that list_sh_missing_x reports for the
 # given args (no args = whole repo). Prints each fix; a no-op when
 # nothing needs fixing. Returns 0 either way.
+#
+# list_sh_missing_x emits repo-root-relative paths, so update-index
+# must run from the toplevel too - otherwise a path like
+# .github/actions/... would be resolved against the caller's subdir
+# and fail. cd-ing here keeps the fix cwd-independent, matching the
+# detector.
 fix_sh_executable() {
-    local missing
+    local repo_root missing
+    repo_root="$(git rev-parse --show-toplevel)"
     missing="$(list_sh_missing_x "$@")"
     if [[ -z "${missing}" ]]; then
         return 0
     fi
     while IFS= read -r f; do
         echo "fixing +x on ${f}"
-        git update-index --chmod=+x "${f}"
+        (cd "${repo_root}" && git update-index --chmod=+x "${f}")
     done <<< "${missing}"
 }
 

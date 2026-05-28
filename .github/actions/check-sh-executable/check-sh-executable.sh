@@ -32,14 +32,24 @@ set -euo pipefail
 # <stage>\t<path>"; 100644 is a non-executable regular file, 100755
 # carries +x. With no args, scans every tracked .sh; with explicit
 # path args, checks only those (caller restricts to .sh itself).
+#
+# Runs git from the repo top so the result is the same wherever the
+# caller is invoked. git pathspecs and ls-files output are relative to
+# the current directory, so a plain `*.sh` scan launched from a subdir
+# (e.g. the fix-permissions runner double-clicked in scripts/) would
+# silently see only that subtree and miss the rest of the repo. cd-ing
+# to the toplevel makes the no-arg scan truly repo-wide and the emitted
+# paths repo-root-relative for every caller.
 # SC2120: args are optional by design - the gate calls with none
 # (whole repo), the hook passes specific staged paths.
 # shellcheck disable=SC2120
 list_sh_missing_x() {
+    local repo_root
+    repo_root="$(git rev-parse --show-toplevel)"
     if (( $# == 0 )); then
-        git ls-files -s -- '*.sh'
+        (cd "${repo_root}" && git ls-files -s -- '*.sh')
     else
-        git ls-files -s -- "$@"
+        (cd "${repo_root}" && git ls-files -s -- "$@")
     fi | awk '$1 == "100644" { print $4 }'
 }
 
