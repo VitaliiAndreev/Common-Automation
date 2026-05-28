@@ -1,0 +1,30 @@
+name: Assert secret is set
+description: >
+  Fails with a clear message if a required secret is missing or empty.
+  Composite actions cannot declare typed secret inputs, so the value is
+  passed as a regular string input - GitHub masks it in logs regardless.
+
+inputs:
+  value:
+    description: The secret value to check.
+    required: true
+  name:
+    description: >
+      The secret name, used in the error message to tell the caller
+      which secret to add (e.g. 'PSGALLERY_API_KEY').
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Assert secret is set
+      shell: bash
+      env:
+        # Passed via env rather than interpolated directly into the script
+        # to avoid injection if the secret contains shell metacharacters.
+        SECRET_VALUE: ${{ inputs.value }}
+        SECRET_NAME: ${{ inputs.name }}
+      # github.action_path resolves to the directory where this action's
+      # files were checked out, so the script is found regardless of the
+      # caller repo's layout.
+      run: "${{ github.action_path }}/assert-secret.sh" "$SECRET_VALUE" "$SECRET_NAME"

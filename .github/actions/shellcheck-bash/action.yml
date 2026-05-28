@@ -1,0 +1,28 @@
+name: Strict shellcheck on a bash directory
+description: >
+  Runs shellcheck at its strictest setting (--severity=style
+  --enable=all) over every *.sh file under a given directory. Pass
+  `scan-path` to point it at the directory you want covered. Missing
+  paths are treated as a no-op so the same action can be safely used
+  in repos that may or may not have a given directory.
+
+  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  building block for consumers that want the same strict bar applied
+  to their own bash without re-deriving the shellcheck flag set.
+
+inputs:
+  scan-path:
+    description: Directory (relative to the repo root) to scan for *.sh files.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Strict shellcheck on ${{ inputs.scan-path }}
+      shell: bash
+      # All logic lives in shellcheck-bash.sh so the strict flag set
+      # is a single source of truth - the local pre-push runner
+      # references the same file (sourced for the flags array,
+      # executed for the full run).
+      run: |
+        '${{ github.action_path }}/shellcheck-bash.sh' '${{ inputs.scan-path }}'

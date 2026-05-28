@@ -1,0 +1,101 @@
+# Lint and test bash.
+#
+# Production bash (.github/actions/) and runner bash (scripts/) get
+# separate lint jobs so failures are attributable at a glance and the
+# two categories can diverge later if their bars need to differ. Both
+# currently run at shellcheck's strictest setting via the
+# shellcheck-bash composite action under .github/actions/.
+#
+# Reusable: other repos call this workflow with no inputs. It scans
+# the caller's `.github/actions/` and `scripts/` directories; missing
+# directories are skipped silently.
+#
+#   jobs:
+#     bash:
+#       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@master
+
+name: ci-bash
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+    inputs:
+      bats-version:
+        # Empty default delegates to the bats composite action, which
+        # falls back to .github/lib/versions.env. Single source of truth -
+        # set this input explicitly only to pin a different version
+        # than the canonical one.
+        description: >
+          Override bats-core version. Empty (default) uses the
+          canonical version from .github/lib/versions.env.
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  # Production bash: everything under .github held to the strict bar.
+  # That spans the composite actions in .github/actions/ and the
+  # shared helpers in .github/lib - some consumer-invoked
+  # (get-bats-version.sh, called by the test-bats action) and some
+  # local-only (fix-sh-executable.sh, used by the hook and the
+  # fix-permissions runner). Scanning all of .github covers them
+  # regardless. Strictest setting non-negotiable - a regression in an
+  # action ships to every downstream repo.
+  shellcheck-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: .github
+
+  # Runner bash: maintainer-side dev scripts (test runners, helpers).
+  # Same strict bar as production today; the split exists so the bars
+  # can diverge later without re-architecting the workflow.
+  shellcheck-runners:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: scripts
+
+  # Git hooks under .githooks/ have no .sh extension (git requires
+  # exact filenames like pre-commit), so the *.sh-globbing
+  # shellcheck-bash action cannot reach them via scan-path. Lint them
+  # explicitly here, sourcing shellcheck-bash.sh only for its canonical
+  # flag set so the strict bar stays single-sourced with the other
+  # shellcheck jobs. shellcheck is preinstalled on ubuntu-latest.
+  shellcheck-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Strict shellcheck on git hooks
+        shell: bash
+        run: |
+          source .github/actions/shellcheck-bash/shellcheck-bash.sh
+          shellcheck "${SHELLCHECK_FLAGS[@]}" -- .githooks/*
+
+  # Files authored on Windows land in git as mode 0644 by default. On
+  # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
+  # other direct script execution. The bats job catches this too, but
+  # its symptom ("every test fails with status mismatch") is opaque;
+  # this job gives the same failure a one-line, copy-pasteable fix.
+  check-sh-executable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/check-sh-executable
+
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/test-bats
+        with:
+          # Pass through to the action; empty value (push/PR triggers,
+          # or workflow_call without override) makes the action read
+          # the canonical version from .github/lib/versions.env.
+          bats-version: ${{ inputs.bats-version }}

@@ -1,0 +1,22 @@
+# Shell scripts and Dockerfiles must be LF on disk regardless of the
+# checkout platform - bash, shellcheck, and Docker all reject CRLF in
+# different ways (bash sees `\r` as part of the line and shellcheck
+# refuses to parse the file).
+*.sh    text eol=lf
+*.bats  text eol=lf
+Dockerfile text eol=lf
+
+# YAML is portable; force LF so workflows checked out on Windows
+# self-hosted runners do not diff against the linter on Linux runners.
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Git hooks have no extension. Bash refuses to execute scripts with
+# CRLF line endings (`\r` becomes part of the shebang interpreter
+# path), so pin them to LF.
+.githooks/* text eol=lf
+
+# Tool-version manifest is sourced by both local bash and CI-side
+# bash; CRLF would land as part of variable values (BATS_VERSION
+# becomes "1.11.0\r") and break the image tag.
+*.env       text eol=lf

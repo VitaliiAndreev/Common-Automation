@@ -1,0 +1,29 @@
+name: Build SSH test image
+description: >
+  Builds the SSH target Docker image for integration tests that connect via
+  SSH to a container. Uses GitHub Actions cache for Docker layers so that
+  subsequent runs skip apt-get entirely.
+  The Dockerfile lives alongside this action and is shared across all repos
+  that use SSH-based integration tests.
+
+inputs:
+  image-name:
+    description: Local image tag to load into the Docker daemon.
+    required: false
+    default: 'infra-ssh-test-image'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Build and cache SSH test image
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ github.action_path }}
+        push: false
+        load: true
+        tags: ${{ inputs.image-name }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
