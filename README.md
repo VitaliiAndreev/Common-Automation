@@ -20,6 +20,8 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 | `.github/actions/test-bats/`                    | Installs bats-core and runs every *.bats suite under a given path. |
 | `.github/actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
 | `.github/actions/shellcheck-bash/`              | Runs strict shellcheck on every *.sh under a given directory.     |
+| `.github/actions/actionlint/`                   | Lints GitHub Actions workflows and composite actions via pinned rhysd/actionlint. |
+| `.github/actions/action-validator/`             | Schema-validates workflows and composite `action.yml` files via pinned mpalmer/action-validator. |
 
 ## Local development
 
@@ -51,8 +53,12 @@ them later - the hook just turns "push, fail, fix, re-push" into
 ```
 
 `scripts/run-tests.sh` uses native `bats` if installed, otherwise falls
-back to Docker (`bats/bats:1.11.0`, same image CI uses). Run it before
-pushing to catch failures locally. Windows users can double-click
+back to Docker (`bats/bats:1.11.0`, same image CI uses). It also runs
+`actionlint` over every workflow via the pinned `rhysd/actionlint`
+image, and `action-validator` over every workflow and composite
+`action.yml` via a pinned image built from the `mpalmer/action-validator`
+release binary (Docker required for both checks). Run it before pushing
+to catch failures locally. Windows users can double-click
 `scripts/run-tests.bat` for the same result.
 
 ## Consuming
@@ -86,6 +92,22 @@ or the other still works without configuration.
 
 Override `bats-version` if you need to pin to a specific bats release.
 
+### Reusable workflow: ci-yaml
+
+For the same lint recipe applied to a repo's GitHub Actions YAML
+(workflows + composite `action.yml` files), call the `ci-yaml.yml`
+reusable workflow:
+
+```yaml
+jobs:
+  yaml:
+    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@v1
+```
+
+No inputs - both underlying composite actions self-resolve their
+pinned versions. The workflow runs `actionlint` and `action-validator`
+as parallel jobs; either underlying directory may be absent.
+
 ### Pinning
 
 Use `@v1` for the stable tag once published; pin to `@master` during
@@ -109,15 +131,27 @@ GitHub-Common/
 │   │   ├── check-sh-executable/
 │   │   │   ├── action.yml               # composite, invokes the .sh
 │   │   │   └── check-sh-executable.sh   # CI gate: fail on tracked .sh missing +x
-│   │   └── shellcheck-bash/
+│   │   ├── shellcheck-bash/
+│   │   │   ├── action.yml               # composite, invokes the .sh
+│   │   │   └── shellcheck-bash.sh       # logic (also sourced by scripts/run-tests.sh)
+│   │   ├── actionlint/
+│   │   │   ├── action.yml               # composite, invokes the .sh
+│   │   │   ├── actionlint.sh            # logic (docker rhysd/actionlint, pinned)
+│   │   │   └── actionlint.bats          # unit tests
+│   │   └── action-validator/
 │   │       ├── action.yml               # composite, invokes the .sh
-│   │       └── shellcheck-bash.sh       # logic (also sourced by scripts/run-tests.sh)
+│   │       ├── action-validator.sh      # logic (in-repo Docker image, pinned binary)
+│   │       ├── action-validator.bats    # unit tests
+│   │       └── Dockerfile               # bundles mpalmer/action-validator release binary
 │   ├── lib/                             # shared shell helpers (no maintainer-only deps)
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)
+│   │   ├── get-actionlint-version.sh    # resolves actionlint version (override or versions.env)
+│   │   ├── get-action-validator-version.sh  # resolves action-validator version (override or versions.env)
 │   │   └── fix-sh-executable.sh         # shared +x fix engine (hook + runner reuse it)
 │   └── workflows/
-│       └── ci-bash.yml                  # lint + bats + +x gate on PR/push + workflow_call
+│       ├── ci-bash.yml                  # lint + bats + +x gate on PR/push + workflow_call
+│       └── ci-yaml.yml                  # actionlint + action-validator on PR/push + workflow_call
 ├── .githooks/
 │   └── pre-commit                       # auto-+x staged .sh files (via .github/lib)
 ├── scripts/

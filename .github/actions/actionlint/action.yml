@@ -1,0 +1,25 @@
+name: actionlint
+description: >
+  Lints every GitHub Actions workflow under .github/workflows/ using a
+  pinned rhysd/actionlint Docker image. Composite actions under
+  .github/actions/ are linted transitively when those workflows
+  reference them via `uses:`. A missing workflows/ directory is
+  treated as a no-op so the same action is safe to use in repos that
+  do not yet have any workflows.
+
+  Used by GitHub-Common's own ci-yaml.yml; also intended as a public
+  building block for consumers that want the same actionlint version
+  applied to their own workflows without re-deriving the docker
+  invocation.
+
+runs:
+  using: composite
+  steps:
+    - name: actionlint
+      shell: bash
+      # All logic lives in actionlint.sh so the file discovery and
+      # docker invocation stay a single source of truth - the local
+      # pre-push runner invokes the same helper rather than
+      # re-deriving them.
+      run: |
+        '${{ github.action_path }}/actionlint.sh'

@@ -1,0 +1,44 @@
+# Lint YAML: GitHub Actions workflows and composite action.yml files.
+#
+# Two jobs in parallel because the surfaces are independent and the
+# tools complement rather than overlap:
+#   - actionlint catches semantic workflow problems (expression typos,
+#     missing run/uses, shell-script issues inside `run:` blocks).
+#   - action-validator catches schema-level shape problems on BOTH
+#     workflows AND composite action.yml files.
+#
+# Both composite actions self-resolve their pinned versions from
+# .github/lib/versions.env, so no inputs are needed.
+#
+# Reusable: other repos call this workflow with no inputs. Each job
+# scans the caller's `.github/workflows/` and `.github/actions/`
+# trees; missing directories are skipped silently by the underlying
+# composite actions.
+#
+#   jobs:
+#     yaml:
+#       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@master
+#
+# Expectation: the very first CI run of this workflow on this repo
+# must pass. If it does not, the bar is set incorrectly - any
+# findings get fixed at the composite-action layer, not by relaxing
+# this workflow.
+
+name: ci-yaml
+
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: ./.github/actions/actionlint
+
+  action-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: ./.github/actions/action-validator
