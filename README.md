@@ -123,6 +123,7 @@ GitHub-Common/
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)
 │   │   ├── get-actionlint-version.sh    # resolves actionlint version (override or versions.env)
+│   │   ├── get-action-validator-version.sh  # resolves action-validator version (override or versions.env)
 │   │   └── fix-sh-executable.sh         # shared +x fix engine (hook + runner reuse it)
 │   └── workflows/
 │       └── ci-bash.yml                  # lint + bats + +x gate on PR/push + workflow_call
