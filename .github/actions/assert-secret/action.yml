@@ -27,4 +27,5 @@ runs:
       # github.action_path resolves to the directory where this action's
       # files were checked out, so the script is found regardless of the
       # caller repo's layout.
-      run: "${{ github.action_path }}/assert-secret.sh" "$SECRET_VALUE" "$SECRET_NAME"
+      run: |
+        "${{ github.action_path }}/assert-secret.sh" "$SECRET_VALUE" "$SECRET_NAME"
