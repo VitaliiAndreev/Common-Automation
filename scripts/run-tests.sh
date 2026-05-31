@@ -13,7 +13,8 @@
 #   - shellcheck (git hooks under .githooks/)
 #   - check-sh-executable (+x bit on every tracked *.sh)
 #   - bats (every *.bats suite in the repo)
-#   - actionlint (every workflow + composite action.yml)
+#   - actionlint (every workflow)
+#   - action-validator (every workflow + composite action.yml)
 #
 # Uses native shellcheck / bats if available on PATH; otherwise falls
 # back to Docker so a developer with only Docker Desktop on Windows
@@ -147,6 +148,16 @@ run_actionlint() {
     return $?
 }
 
+# Same delegation pattern as run_actionlint: the helper owns discovery,
+# the pinned image tag, and the build-on-first-use cache, so no
+# action-validator constants leak into this runner.
+run_action_validator() {
+    echo "=== action-validator ==="
+    local helper="${ghcommon_root}/.github/actions/action-validator/action-validator.sh"
+    (cd "${repo_root}" && bash "${helper}")
+    return $?
+}
+
 run_bats() {
     echo "=== bats ==="
     if command -v bats >/dev/null 2>&1; then
@@ -204,6 +215,11 @@ echo
 
 if ! run_actionlint; then
     failures+=("actionlint")
+fi
+echo
+
+if ! run_action_validator; then
+    failures+=("action-validator")
 fi
 echo
 

@@ -54,10 +54,12 @@ them later - the hook just turns "push, fail, fix, re-push" into
 
 `scripts/run-tests.sh` uses native `bats` if installed, otherwise falls
 back to Docker (`bats/bats:1.11.0`, same image CI uses). It also runs
-`actionlint` over every workflow and composite `action.yml` via the
-pinned `rhysd/actionlint` image (Docker required for this check). Run
-it before pushing to catch failures locally. Windows users can
-double-click `scripts/run-tests.bat` for the same result.
+`actionlint` over every workflow via the pinned `rhysd/actionlint`
+image, and `action-validator` over every workflow and composite
+`action.yml` via a pinned image built from the `mpalmer/action-validator`
+release binary (Docker required for both checks). Run it before pushing
+to catch failures locally. Windows users can double-click
+`scripts/run-tests.bat` for the same result.
 
 ## Consuming
 
