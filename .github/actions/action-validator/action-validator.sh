@@ -40,17 +40,22 @@ actions_dir=".github/actions"
 # so .github/actions/<name>/action.yml is picked up but a stray
 # .github/actions/action.yml is not.
 files=()
+# SC2312: collect each find's output into a variable first so its exit
+# status is observable to set -e, then feed the variable into the loop.
+# Reading directly from a process substitution would mask a find failure.
 if [[ -d "${workflows_dir}" ]]; then
+    workflow_hits="$(find "${workflows_dir}" -maxdepth 1 -type f \
+        \( -name '*.yml' -o -name '*.yaml' \))"
     while IFS= read -r f; do
         [[ -n "${f}" ]] && files+=("${f}")
-    done < <(find "${workflows_dir}" -maxdepth 1 -type f \
-        \( -name '*.yml' -o -name '*.yaml' \))
+    done <<< "${workflow_hits}"
 fi
 if [[ -d "${actions_dir}" ]]; then
+    action_hits="$(find "${actions_dir}" -mindepth 2 -type f \
+        \( -name 'action.yml' -o -name 'action.yaml' \))"
     while IFS= read -r f; do
         [[ -n "${f}" ]] && files+=("${f}")
-    done < <(find "${actions_dir}" -mindepth 2 -type f \
-        \( -name 'action.yml' -o -name 'action.yaml' \))
+    done <<< "${action_hits}"
 fi
 
 if (( ${#files[@]} == 0 )); then
