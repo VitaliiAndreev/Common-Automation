@@ -21,6 +21,7 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 | `.github/actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
 | `.github/actions/shellcheck-bash/`              | Runs strict shellcheck on every *.sh under a given directory.     |
 | `.github/actions/actionlint/`                   | Lints GitHub Actions workflows and composite actions via pinned rhysd/actionlint. |
+| `.github/actions/action-validator/`             | Schema-validates workflows and composite `action.yml` files via pinned mpalmer/action-validator. |
 
 ## Local development
 
@@ -115,10 +116,15 @@ GitHub-Common/
 │   │   ├── shellcheck-bash/
 │   │   │   ├── action.yml               # composite, invokes the .sh
 │   │   │   └── shellcheck-bash.sh       # logic (also sourced by scripts/run-tests.sh)
-│   │   └── actionlint/
+│   │   ├── actionlint/
+│   │   │   ├── action.yml               # composite, invokes the .sh
+│   │   │   ├── actionlint.sh            # logic (docker rhysd/actionlint, pinned)
+│   │   │   └── actionlint.bats          # unit tests
+│   │   └── action-validator/
 │   │       ├── action.yml               # composite, invokes the .sh
-│   │       ├── actionlint.sh            # logic (docker rhysd/actionlint, pinned)
-│   │       └── actionlint.bats          # unit tests
+│   │       ├── action-validator.sh      # logic (in-repo Docker image, pinned binary)
+│   │       ├── action-validator.bats    # unit tests
+│   │       └── Dockerfile               # bundles mpalmer/action-validator release binary
 │   ├── lib/                             # shared shell helpers (no maintainer-only deps)
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)

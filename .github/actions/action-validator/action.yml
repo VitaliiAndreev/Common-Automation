@@ -1,0 +1,33 @@
+name: action-validator
+description: >
+  Schema-validates every workflow YAML under .github/workflows/ AND
+  every composite action.yml under .github/actions/*/ using a pinned
+  mpalmer/action-validator binary, packaged here as a small Docker
+  image because upstream has no official image and the npm channel
+  lags releases. Either directory may be absent - the action no-ops
+  silently when there is nothing to validate, so it is safe to use in
+  repos that have only workflows OR only composite actions.
+
+  Pairs with the actionlint composite: actionlint catches semantic
+  workflow problems (expression typos, missing run/uses, etc.),
+  action-validator catches schema-level shape problems on BOTH
+  workflows AND composite action.yml files - the kind of finding that
+  otherwise only surfaces when a downstream consumer tries to call
+  the action.
+
+  Used by GitHub-Common's own ci-yaml.yml; also intended as a public
+  building block for consumers that want the same action-validator
+  version applied to their own workflows and composite actions
+  without re-deriving the docker invocation.
+
+runs:
+  using: composite
+  steps:
+    - name: action-validator
+      shell: bash
+      # All logic lives in action-validator.sh so the file discovery
+      # and docker invocation stay a single source of truth - the
+      # local pre-push runner invokes the same helper rather than
+      # re-deriving them.
+      run: |
+        '${{ github.action_path }}/action-validator.sh'
