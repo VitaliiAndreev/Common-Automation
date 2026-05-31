@@ -20,6 +20,7 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 | `.github/actions/test-bats/`                    | Installs bats-core and runs every *.bats suite under a given path. |
 | `.github/actions/build-ssh-test-image/`         | Builds the SSH target Docker image used by integration tests.     |
 | `.github/actions/shellcheck-bash/`              | Runs strict shellcheck on every *.sh under a given directory.     |
+| `.github/actions/actionlint/`                   | Lints GitHub Actions workflows and composite actions via pinned rhysd/actionlint. |
 
 ## Local development
 
@@ -109,9 +110,13 @@ GitHub-Common/
 │   │   ├── check-sh-executable/
 │   │   │   ├── action.yml               # composite, invokes the .sh
 │   │   │   └── check-sh-executable.sh   # CI gate: fail on tracked .sh missing +x
-│   │   └── shellcheck-bash/
+│   │   ├── shellcheck-bash/
+│   │   │   ├── action.yml               # composite, invokes the .sh
+│   │   │   └── shellcheck-bash.sh       # logic (also sourced by scripts/run-tests.sh)
+│   │   └── actionlint/
 │   │       ├── action.yml               # composite, invokes the .sh
-│   │       └── shellcheck-bash.sh       # logic (also sourced by scripts/run-tests.sh)
+│   │       ├── actionlint.sh            # logic (docker rhysd/actionlint, pinned)
+│   │       └── actionlint.bats          # unit tests
 │   ├── lib/                             # shared shell helpers (no maintainer-only deps)
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)
