@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # Unit tests for actionlint.sh - the composite action's helper that
-# lints a repo's workflows and composite actions. The most important
+# lints a repo's workflows (composite actions are linted transitively
+# via `uses:` references from those workflows). The most important
 # contract is the skip-silently branch (covered without docker so it
 # stays green on any workstation) plus the pass/fail outcomes on real
 # fixtures (covered through the pinned rhysd/actionlint image, so the
@@ -27,7 +28,7 @@ require_docker() {
     fi
 }
 
-@test "skips silently when neither workflows nor actions directory exists" {
+@test "skips silently when workflows directory does not exist" {
     # Pre-image-resolution branch - no docker required, so this test
     # locks the no-op contract even on bare workstations.
     run bash -c "cd '${workdir}' && '${SCRIPT}'"

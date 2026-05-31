@@ -1,10 +1,11 @@
 name: actionlint
 description: >
-  Lints every GitHub Actions workflow under .github/workflows/ and every
-  composite action.yml under .github/actions/ using a pinned
-  rhysd/actionlint Docker image. Missing directories are treated as a
-  no-op so the same action is safe to use in repos that may or may not
-  have either tree.
+  Lints every GitHub Actions workflow under .github/workflows/ using a
+  pinned rhysd/actionlint Docker image. Composite actions under
+  .github/actions/ are linted transitively when those workflows
+  reference them via `uses:`. A missing workflows/ directory is
+  treated as a no-op so the same action is safe to use in repos that
+  do not yet have any workflows.
 
   Used by GitHub-Common's own ci-yaml.yml; also intended as a public
   building block for consumers that want the same actionlint version

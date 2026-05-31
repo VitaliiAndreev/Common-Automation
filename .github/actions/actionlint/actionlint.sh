@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # Runs actionlint over the caller repo's GitHub Actions surface:
-# every YAML under .github/workflows/ and every composite action.yml
-# under .github/actions/. Single source of truth for the actionlint
-# invocation - the composite wrapper (action.yml) and the local
-# pre-push runner (scripts/run-tests.sh) both exec this file so the
-# discovery rules and docker arguments cannot drift between CI and
-# local.
+# every workflow YAML under .github/workflows/. Composite actions
+# under .github/actions/ are linted transitively - actionlint follows
+# `uses: ./.github/actions/...` references from the workflows it
+# checks. Passing composite action.yml files as positional args does
+# NOT work: actionlint treats positional args as workflows and rejects
+# the composite schema ("jobs section is missing", etc.). Discovery is
+# therefore workflow-only here.
+#
+# Single source of truth for the actionlint invocation - the composite
+# wrapper (action.yml) and the local pre-push runner
+# (scripts/run-tests.sh) both exec this file so the discovery rules
+# and docker arguments cannot drift between CI and local.
 #
 # Uses the pinned rhysd/actionlint Docker image - the version comes
 # from .github/lib/versions.env via the shared getter so a bump there
@@ -13,7 +19,7 @@
 # in the composite action: the image is small, pinned, and avoids a
 # per-runner toolchain step.
 #
-# Skips silently with a `::notice::` when neither directory exists, so
+# Skips silently with a `::notice::` when no workflows exist, so
 # consumers can wire the workflow in before they have any workflows
 # of their own.
 #
@@ -24,32 +30,19 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 workflows_dir=".github/workflows"
-actions_dir=".github/actions"
 
-# Discover files explicitly rather than letting actionlint auto-scan,
-# so the absent-directory branch is observable and the same file list
-# could be reused by the local runner. -maxdepth on workflows mirrors
-# GitHub's own loader (only top-level *.yml is a workflow); -mindepth
-# 2 on actions skips any stray action.yml at the actions root. Capture
-# to a single newline-delimited string and word-split at use - keeps
-# return-value handling visible to shellcheck (SC2312) without an
-# inline disable per call.
+# -maxdepth 1 mirrors GitHub's own loader - only top-level *.yml under
+# .github/workflows/ is a workflow. Explicit discovery (rather than
+# letting actionlint auto-scan) keeps the absent-directory skip branch
+# observable and makes "what we lint" auditable in one place.
 files=""
 if [[ -d "${workflows_dir}" ]]; then
-    workflow_files="$(find "${workflows_dir}" -maxdepth 1 -type f \
+    files="$(find "${workflows_dir}" -maxdepth 1 -type f \
         \( -name '*.yml' -o -name '*.yaml' \))"
-    files+="${workflow_files}"$'\n'
-fi
-if [[ -d "${actions_dir}" ]]; then
-    action_files="$(find "${actions_dir}" -mindepth 2 -type f \
-        \( -name 'action.yml' -o -name 'action.yaml' \))"
-    files+="${action_files}"$'\n'
 fi
 
-# Trim blank lines from optional-branch concatenation before counting.
-files="$(printf '%s' "${files}" | sed '/^$/d')"
 if [[ -z "${files}" ]]; then
-    echo "::notice::no workflow or composite action YAML files, skipping"
+    echo "::notice::no workflow YAML files under ${workflows_dir}, skipping"
     exit 0
 fi
 
