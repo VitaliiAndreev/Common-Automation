@@ -1,0 +1,32 @@
+name: Strict shellcheck on git hooks
+description: >
+  Runs shellcheck at the canonical strict setting over the
+  extension-less files under a hooks directory (defaults to
+  `.githooks/`). git requires hooks to be named without an extension
+  (`pre-commit`, `pre-push`, ...), so the *.sh-globbing shellcheck-bash
+  action cannot reach them via scan-path - this action handles that
+  one case.
+
+  Sources `SHELLCHECK_FLAGS` from the sibling shellcheck-bash action so
+  the strict bar stays single-sourced. Missing or empty hooks
+  directories skip silently so consumers that wire the workflow in
+  before adopting git hooks are unaffected.
+
+inputs:
+  hooks-dir:
+    description: >
+      Directory (relative to the repo root) containing the git hook
+      files to lint. Defaults to `.githooks/`.
+    required: false
+    default: .githooks
+
+runs:
+  using: composite
+  steps:
+    - name: Strict shellcheck on ${{ inputs.hooks-dir }}
+      shell: bash
+      # All logic lives in shellcheck-hooks.sh so the lint behaviour
+      # is a single source of truth - the local pre-push runner
+      # references the same file.
+      run: |
+        '${{ github.action_path }}/shellcheck-hooks.sh' '${{ inputs.hooks-dir }}'
