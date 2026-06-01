@@ -109,14 +109,20 @@ run_shellcheck_on() {
     run_shellcheck_flagged ${files}
 }
 
-# Lints the git hooks. They have no .sh extension (git requires exact
-# filenames), so the helper's *.sh discovery cannot find them - expand
-# the hook list explicitly (relative to repo_root) and lint via the
-# shared executor, mirroring CI's shellcheck-hooks job.
+# Lints the git hooks via the shellcheck-hooks composite's helper -
+# same path the CI shellcheck-hooks job runs, so the discovery + skip
+# behaviour stays single-sourced with CI. Native shellcheck only; the
+# docker fallback below mirrors the helper's logic against the shared
+# FLAGS array because the Alpine shellcheck image cannot run bash.
 run_shellcheck_hooks() {
     echo "=== shellcheck hooks (.githooks) ==="
-    # A consuming target repo may have no hooks - skip rather than feed
-    # the linter the unexpanded ".githooks/*" glob (which would error).
+    local helper="${ghcommon_root}/.github/actions/shellcheck-hooks/shellcheck-hooks.sh"
+
+    if command -v shellcheck >/dev/null 2>&1; then
+        (cd "${repo_root}" && bash "${helper}")
+        return $?
+    fi
+
     if [[ ! -d "${repo_root}/.githooks" ]]; then
         echo "::notice::no .githooks/, skipping"
         return 0

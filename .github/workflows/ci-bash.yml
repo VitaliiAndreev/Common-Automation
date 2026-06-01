@@ -14,25 +14,11 @@
 #     bash:
 #       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@master
 #
-# Why two checkouts per job:
-#   The first checkout is the consumer's code - the surface every
-#   lint/test job scans. The second is a separate checkout of
-#   GitHub-Common itself into `.github-common/`, used only as the
-#   source of the composite actions this workflow references via
-#   `uses: ./.github-common/.github/actions/<name>`. Local `./` refs
-#   inside a reusable workflow resolve against the CALLER repo's
-#   workspace, not this repo's, so without the second checkout the
-#   composite actions are unreachable from a downstream consumer.
-#
-#   The second checkout's `ref` is `github.workflow_sha` - the
-#   commit SHA of the called workflow file. For a consumer that
-#   pinned `uses: ...ci-bash.yml@<sha>`, this resolves to <sha>, so
-#   the composite actions are taken from exactly the version the
-#   consumer asked for - no master-following leak across a
-#   SHA-pinned boundary. For self-test, where the workflow runs
-#   under a PR on this repo, `github.workflow_sha` equals
-#   `github.sha`, so the PR's version of the actions is what gets
-#   tested.
+# Each composite is invoked through an if-guarded pair: the `./` form
+# runs on a PR to this repo so the PR's own version of the composite
+# is exercised end-to-end, and the fully-qualified `@master` form runs
+# for downstream consumers where the `./` path does not exist in their
+# workspace.
 
 name: ci-bash
 
@@ -64,19 +50,15 @@ jobs:
   shellcheck-production:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/shellcheck-bash
         with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/shellcheck-bash
+          scan-path: .github
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/shellcheck-bash@master
         with:
           scan-path: .github
 
@@ -86,56 +68,62 @@ jobs:
   shellcheck-runners:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/shellcheck-bash
         with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/shellcheck-bash
+          scan-path: scripts
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/shellcheck-bash@master
         with:
           scan-path: scripts
 
   # Git hooks under .githooks/ have no .sh extension (git requires
   # exact filenames like pre-commit), so the *.sh-globbing
-  # shellcheck-bash action cannot reach them via scan-path. Lint them
-  # explicitly here, sourcing shellcheck-bash.sh only for its canonical
-  # flag set so the strict bar stays single-sourced with the other
-  # shellcheck jobs. shellcheck is preinstalled on ubuntu-latest.
+  # shellcheck-bash action cannot reach them via scan-path. The
+  # shellcheck-hooks composite wraps the discovery + lint.
+  #
+  # The other jobs in this workflow use an if-guarded pair of
+  # `./.github/actions/<name>` (self-test) and
+  # `VitaliiAndreev/GitHub-Common/.github/actions/<name>@master`
+  # (external consumer). That shape does not work here yet because
+  # GitHub Actions eagerly resolves every `@master` ref at job-prep
+  # time, before step-level `if:` guards are evaluated, and the
+  # shellcheck-hooks composite is being introduced in this same PR -
+  # master does not contain it yet, so the @master line would fail
+  # the job at prep time on every self-test run.
+  #
+  # The workaround is to keep every `uses:` in this job as a local
+  # `./` path: local refs resolve at step-execution time, not at
+  # prep time, so a missing path never trips eager resolution.
+  # External consumers get a conditional sparse second checkout of
+  # GitHub-Common at master that drops the composite at
+  # `.gh-common/.github/actions/shellcheck-hooks`, so the external
+  # `./` line has a populated path to resolve when its step runs.
+  #
+  # Convert to the simpler if-guarded `./` + `@master` pair in a
+  # follow-up PR once shellcheck-hooks is on master.
   shellcheck-hooks:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
+          ref: master
+          path: .gh-common
+          sparse-checkout: .github/actions/shellcheck-hooks
           sparse-checkout-cone-mode: false
-      - name: Strict shellcheck on git hooks
-        shell: bash
-        run: |
-          # Source the canonical shellcheck flag set from GitHub-Common
-          # (the second checkout) so the strict bar stays single-sourced
-          # with the other shellcheck jobs. Hooks under .githooks/ are
-          # in the consumer's tree.
-          source .github-common/.github/actions/shellcheck-bash/shellcheck-bash.sh
-          if compgen -G ".githooks/*" >/dev/null; then
-            shellcheck "${SHELLCHECK_FLAGS[@]}" -- .githooks/*
-          else
-            echo "::notice::No .githooks/ directory in this repo; skipping hooks shellcheck."
-          fi
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/shellcheck-hooks
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: ./.gh-common/.github/actions/shellcheck-hooks
 
   # Files authored on Windows land in git as mode 0644 by default. On
   # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
@@ -145,38 +133,28 @@ jobs:
   check-sh-executable:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/check-sh-executable
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/check-sh-executable
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/check-sh-executable@master
 
   bats:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/test-bats
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
           # or workflow_call without override) makes the action read
           # the canonical version from .github/lib/versions.env.
+          bats-version: ${{ inputs.bats-version }}
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/test-bats@master
+        with:
           bats-version: ${{ inputs.bats-version }}

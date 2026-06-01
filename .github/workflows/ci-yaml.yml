@@ -21,37 +21,17 @@
 # lets a single reusable workflow serve every consumer regardless of
 # which YAML surfaces they actually use.
 #
+# Each composite is invoked through an if-guarded pair: the `./` form
+# runs on a PR to this repo so the PR's own version of the composite
+# is exercised end-to-end, and the fully-qualified `@master` form runs
+# for downstream consumers where the `./` path does not exist in their
+# workspace.
+#
 # Reusable: other repos call this workflow with no inputs.
 #
 #   jobs:
 #     yaml:
 #       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@master
-#
-# Expectation: the very first CI run of this workflow on this repo
-# must pass. If it does not, the bar is set incorrectly - any
-# findings get fixed at the composite-action layer, not by relaxing
-# this workflow.
-#
-# Why two checkouts per job:
-#   The first checkout is the consumer's code - the surface every
-#   lint job actually scans. The second is a separate checkout of
-#   GitHub-Common itself into `.github-common/`, used only as the
-#   source of the composite actions this workflow references via
-#   `uses: ./.github-common/.github/actions/<name>`. Local `./`
-#   refs inside a reusable workflow resolve against the CALLER
-#   repo's workspace, not this repo's, so without the second
-#   checkout the composite actions are unreachable from a
-#   downstream consumer.
-#
-#   The second checkout's `ref` is `github.workflow_sha` - the
-#   commit SHA of the called workflow file. For a consumer that
-#   pinned `uses: ...ci-yaml.yml@<sha>`, this resolves to <sha>, so
-#   the composite actions are taken from exactly the version the
-#   consumer asked for - no master-following leak across a
-#   SHA-pinned boundary. For self-test, where the workflow runs
-#   under a PR on this repo, `github.workflow_sha` equals
-#   `github.sha`, so the PR's version of the actions is what gets
-#   tested.
 
 name: ci-yaml
 
@@ -63,67 +43,43 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/actionlint
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/actionlint
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/actionlint@master
 
   action-validator:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/action-validator
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/action-validator
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/action-validator@master
 
   yamllint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/yamllint
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/yamllint
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/yamllint@master
 
   ansible-lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout consumer
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Checkout GitHub-Common (action source)
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: VitaliiAndreev/GitHub-Common
-          ref: ${{ github.workflow_sha }}
-          path: .github-common
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-      - uses: ./.github-common/.github/actions/ansible-lint
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+        uses: ./.github/actions/ansible-lint
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: VitaliiAndreev/GitHub-Common/.github/actions/ansible-lint@master
