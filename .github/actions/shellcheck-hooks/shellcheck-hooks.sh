@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Strict shellcheck on extension-less git hook files under a directory
-# (default `.githooks/`). Sources SHELLCHECK_FLAGS from the sibling
-# shellcheck-bash helper so the strict bar stays single-sourced.
+# (default `.githooks/`). The canonical SHELLCHECK_FLAGS array is
+# sourced from the sibling shellcheck-bash helper so the strict bar
+# stays single-sourced.
 #
 # Modes:
 #
 #   - Executed:  ./shellcheck-hooks.sh [hooks-dir]
 #     Lints every file at the top level of <hooks-dir>. Missing or
 #     empty directories are a no-op (notice + exit 0). Requires
-#     shellcheck on PATH.
+#     `shellcheck` on PATH.
 #
-#   - Sourced is not supported: the sibling shellcheck-bash helper is
-#     the canonical sourced-mode entry for SHELLCHECK_FLAGS.
+#   - Sourced is not supported: the sibling helper is the canonical
+#     sourced-mode entry for SHELLCHECK_FLAGS.
 
 set -euo pipefail
 
