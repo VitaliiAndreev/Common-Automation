@@ -87,6 +87,16 @@ if [[ -z "${consumer_config}" ]]; then
     config_args=(-c /action/ansible-lint.config.yml)
 fi
 
+# ANSIBLE_HOME=/tmp/ansible-home redirects ansible's cache (modules,
+# roles, collections) off the mounted host workspace. ansible-lint
+# defaults ANSIBLE_HOME to <project-dir>/.ansible to avoid polluting
+# the user's $HOME - but with --project-dir /work that "non-pollution"
+# default writes root-owned .ansible/ directories straight into the
+# mounted host repo, which then breaks any non-root caller (bats test
+# cleanup, CI runner tmpdir teardown) that tries to remove the workdir.
+# A container-local path sidesteps that. HOME=/tmp covers any ansible
+# subprocess that bypasses ANSIBLE_HOME and falls back to ~/.ansible.
+#
 # No positional args - ansible-lint auto-discovers playbooks and
 # roles from the working directory. --project-dir is explicit because
 # passing -c <path> would otherwise set project_dir to the config
@@ -97,6 +107,8 @@ fi
 MSYS_NO_PATHCONV=1 docker run --rm \
     -v "${PWD}:/work" -w /work \
     -v "${script_dir}:/action:ro" \
+    -e HOME=/tmp \
+    -e ANSIBLE_HOME=/tmp/ansible-home \
     "${image}" \
     --force-color \
     --project-dir /work \
