@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Shared git fixtures for the git-backed bats suites (check-sh-executable,
-# fix-sh-executable, setup-hooks). Sourced - never run - so it carries no
-# tests itself and is skipped by the recursive *.bats runner.
+# fix-sh-executable, setup-hooks, publish-version-tags). Sourced - never run -
+# so it carries no tests itself and is skipped by the recursive *.bats runner.
 #
-# Lives under scripts/ (the maintainer-only dev tree) rather than .github/:
-# the latter is consumed by downstream repos via the reusable workflows and
-# actions, and test fixtures have no business shipping there. The suites
-# that use it live in three different trees, so a single shared home keeps
-# the source path unambiguous; test-helpers/ separates it from the runner
-# scripts alongside it.
+# Lives under .github/lib/test-helpers/ because the production callers
+# (.github/actions/check-sh-executable/check-sh-executable.bats and
+# .github/lib/fix-sh-executable.bats) take priority over the secondary
+# maintainer-script callers under scripts/. Keeping shared test infra inside
+# .github/lib/ also keeps the sparse-checkout list of the reusable-workflow
+# second checkout uncluttered - .github/lib is already pulled for the version
+# files and getter scripts, so this rides along at zero extra entries.
 
 # Skips the calling test when git is absent (e.g. the git-less bats Docker
 # image used by run-tests.sh's local fallback). The scripts under test are

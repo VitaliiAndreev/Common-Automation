@@ -6,7 +6,7 @@
 # whatever the current directory belongs to - here, the fixture.
 # Run with: bats actions/check-sh-executable/check-sh-executable.bats
 
-source "${BATS_TEST_DIRNAME}/../../../scripts/test-helpers/git-fixtures.bash"
+source "${BATS_TEST_DIRNAME}/../../lib/test-helpers/git-fixtures.bash"
 
 setup() {
     require_git
