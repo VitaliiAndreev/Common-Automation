@@ -11,3 +11,13 @@
 # config first).
 
 profile: production
+
+# Non-Ansible YAML that still lives in every consumer repo. The
+# GitHub Actions surface (`.github/workflows/`, `.github/actions/`)
+# is already covered by actionlint and action-validator in the same
+# reusable workflow, so ansible-lint must not double-flag it on
+# rules it inherits from yamllint (brackets, line-length, comments,
+# ...). Excluding `.github/` wholesale also covers CODEOWNERS,
+# dependabot.yml, and other GitHub-only config files.
+exclude_paths:
+  - .github/

@@ -21,11 +21,21 @@
 # lets a single reusable workflow serve every consumer regardless of
 # which YAML surfaces they actually use.
 #
-# Each composite is invoked through an if-guarded pair: the `./` form
-# runs on a PR to this repo so the PR's own version of the composite
-# is exercised end-to-end, and the fully-qualified `@master` form runs
-# for downstream consumers where the `./` path does not exist in their
-# workspace.
+# Every `uses:` for a GitHub-Common composite is a local `./` path,
+# never a fully-qualified `@master` ref. The reason: GitHub Actions
+# eagerly resolves every registry-form `uses:` at job-prep time
+# before step-level `if:` guards are evaluated, so a PR that
+# introduces a brand new composite would fail prep before any step
+# could run. Local refs are resolved at step-execution time after
+# checkout has populated the workspace, so they side-step the
+# eager-resolution failure mode entirely.
+#
+# To make `./` work for external consumers (whose workspace does not
+# contain GitHub-Common's composites), each job does a conditional
+# sparse checkout of GitHub-Common at master into `.gh-common/` and
+# the external branch of each if-guarded pair points there. The self
+# branch points at the consumer's own workspace, so PRs to this repo
+# exercise the PR's own composite code end-to-end.
 #
 # Reusable: other repos call this workflow with no inputs.
 #
@@ -45,41 +55,85 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/actionlint
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/actionlint@master
+        uses: ./.gh-common/.github/actions/actionlint
 
   action-validator:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/action-validator
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/action-validator@master
+        uses: ./.gh-common/.github/actions/action-validator
 
   yamllint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/yamllint
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/yamllint@master
+        uses: ./.gh-common/.github/actions/yamllint
 
   ansible-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/ansible-lint
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/ansible-lint@master
+        uses: ./.gh-common/.github/actions/ansible-lint

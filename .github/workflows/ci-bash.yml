@@ -14,11 +14,21 @@
 #     bash:
 #       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@master
 #
-# Each composite is invoked through an if-guarded pair: the `./` form
-# runs on a PR to this repo so the PR's own version of the composite
-# is exercised end-to-end, and the fully-qualified `@master` form runs
-# for downstream consumers where the `./` path does not exist in their
-# workspace.
+# Every `uses:` for a GitHub-Common composite is a local `./` path,
+# never a fully-qualified `@master` ref. The reason: GitHub Actions
+# eagerly resolves every registry-form `uses:` at job-prep time
+# before step-level `if:` guards are evaluated, so a PR that
+# introduces a brand new composite would fail prep before any step
+# could run. Local refs are resolved at step-execution time after
+# checkout has populated the workspace, so they side-step the
+# eager-resolution failure mode entirely.
+#
+# To make `./` work for external consumers (whose workspace does not
+# contain GitHub-Common's composites), each job does a conditional
+# sparse checkout of GitHub-Common at master into `.gh-common/` and
+# the external branch of each if-guarded pair points there. The self
+# branch points at the consumer's own workspace, so PRs to this repo
+# exercise the PR's own composite code end-to-end.
 
 name: ci-bash
 
@@ -52,13 +62,24 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/shellcheck-bash@master
+        uses: ./.gh-common/.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
@@ -70,13 +91,24 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/shellcheck-bash@master
+        uses: ./.gh-common/.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
@@ -84,27 +116,6 @@ jobs:
   # exact filenames like pre-commit), so the *.sh-globbing
   # shellcheck-bash action cannot reach them via scan-path. The
   # shellcheck-hooks composite wraps the discovery + lint.
-  #
-  # The other jobs in this workflow use an if-guarded pair of
-  # `./.github/actions/<name>` (self-test) and
-  # `VitaliiAndreev/GitHub-Common/.github/actions/<name>@master`
-  # (external consumer). That shape does not work here yet because
-  # GitHub Actions eagerly resolves every `@master` ref at job-prep
-  # time, before step-level `if:` guards are evaluated, and the
-  # shellcheck-hooks composite is being introduced in this same PR -
-  # master does not contain it yet, so the @master line would fail
-  # the job at prep time on every self-test run.
-  #
-  # The workaround is to keep every `uses:` in this job as a local
-  # `./` path: local refs resolve at step-execution time, not at
-  # prep time, so a missing path never trips eager resolution.
-  # External consumers get a conditional sparse second checkout of
-  # GitHub-Common at master that drops the composite at
-  # `.gh-common/.github/actions/shellcheck-hooks`, so the external
-  # `./` line has a populated path to resolve when its step runs.
-  #
-  # Convert to the simpler if-guarded `./` + `@master` pair in a
-  # follow-up PR once shellcheck-hooks is on master.
   shellcheck-hooks:
     runs-on: ubuntu-latest
     steps:
@@ -116,7 +127,9 @@ jobs:
           repository: VitaliiAndreev/GitHub-Common
           ref: master
           path: .gh-common
-          sparse-checkout: .github/actions/shellcheck-hooks
+          sparse-checkout: |
+            .github/actions
+            .github/lib
           sparse-checkout-cone-mode: false
 
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
@@ -135,16 +148,38 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/check-sh-executable
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/check-sh-executable@master
+        uses: ./.gh-common/.github/actions/check-sh-executable
 
   bats:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: master
+          path: .gh-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
 
       - if: github.repository == 'VitaliiAndreev/GitHub-Common'
         uses: ./.github/actions/test-bats
@@ -155,6 +190,6 @@ jobs:
           bats-version: ${{ inputs.bats-version }}
 
       - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: VitaliiAndreev/GitHub-Common/.github/actions/test-bats@master
+        uses: ./.gh-common/.github/actions/test-bats
         with:
           bats-version: ${{ inputs.bats-version }}
