@@ -6,7 +6,7 @@
 # the immutable tag, force-moving the major tag, and the immutability guard.
 # Run with: bats scripts/publish-version-tags.integration.bats
 
-source "${BATS_TEST_DIRNAME}/test-helpers/git-fixtures.bash"
+source "${BATS_TEST_DIRNAME}/../.github/lib/test-helpers/git-fixtures.bash"
 
 SCRIPT="${BATS_TEST_DIRNAME}/publish-version-tags.sh"
 

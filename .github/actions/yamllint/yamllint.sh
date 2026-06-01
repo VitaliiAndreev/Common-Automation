@@ -56,6 +56,10 @@ exclude_dirs=(
     node_modules
     .github/workflows
     .github/actions
+    # Staging dir created by ci-yaml.yml's second checkout (see the
+    # two-checkout pattern there). It holds a copy of this repo's own
+    # source tree and is not the consumer's concern; skip it.
+    .github-common
 )
 
 # Build a `find` prune expression from the exclude list so file

@@ -13,6 +13,26 @@
 #   jobs:
 #     bash:
 #       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@master
+#
+# Why two checkouts per job:
+#   The first checkout is the consumer's code - the surface every
+#   lint/test job scans. The second is a separate checkout of
+#   GitHub-Common itself into `.github-common/`, used only as the
+#   source of the composite actions this workflow references via
+#   `uses: ./.github-common/.github/actions/<name>`. Local `./` refs
+#   inside a reusable workflow resolve against the CALLER repo's
+#   workspace, not this repo's, so without the second checkout the
+#   composite actions are unreachable from a downstream consumer.
+#
+#   The second checkout's `ref` is `github.workflow_sha` - the
+#   commit SHA of the called workflow file. For a consumer that
+#   pinned `uses: ...ci-bash.yml@<sha>`, this resolves to <sha>, so
+#   the composite actions are taken from exactly the version the
+#   consumer asked for - no master-following leak across a
+#   SHA-pinned boundary. For self-test, where the workflow runs
+#   under a PR on this repo, `github.workflow_sha` equals
+#   `github.sha`, so the PR's version of the actions is what gets
+#   tested.
 
 name: ci-bash
 
@@ -44,8 +64,19 @@ jobs:
   shellcheck-production:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - uses: ./.github/actions/shellcheck-bash
+      - name: Checkout consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout GitHub-Common (action source)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: ${{ github.workflow_sha }}
+          path: .github-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+      - uses: ./.github-common/.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
@@ -55,8 +86,19 @@ jobs:
   shellcheck-runners:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - uses: ./.github/actions/shellcheck-bash
+      - name: Checkout consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout GitHub-Common (action source)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: ${{ github.workflow_sha }}
+          path: .github-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+      - uses: ./.github-common/.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
@@ -69,12 +111,31 @@ jobs:
   shellcheck-hooks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout GitHub-Common (action source)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: ${{ github.workflow_sha }}
+          path: .github-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
       - name: Strict shellcheck on git hooks
         shell: bash
         run: |
-          source .github/actions/shellcheck-bash/shellcheck-bash.sh
-          shellcheck "${SHELLCHECK_FLAGS[@]}" -- .githooks/*
+          # Source the canonical shellcheck flag set from GitHub-Common
+          # (the second checkout) so the strict bar stays single-sourced
+          # with the other shellcheck jobs. Hooks under .githooks/ are
+          # in the consumer's tree.
+          source .github-common/.github/actions/shellcheck-bash/shellcheck-bash.sh
+          if compgen -G ".githooks/*" >/dev/null; then
+            shellcheck "${SHELLCHECK_FLAGS[@]}" -- .githooks/*
+          else
+            echo "::notice::No .githooks/ directory in this repo; skipping hooks shellcheck."
+          fi
 
   # Files authored on Windows land in git as mode 0644 by default. On
   # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
@@ -84,14 +145,36 @@ jobs:
   check-sh-executable:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - uses: ./.github/actions/check-sh-executable
+      - name: Checkout consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout GitHub-Common (action source)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: ${{ github.workflow_sha }}
+          path: .github-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+      - uses: ./.github-common/.github/actions/check-sh-executable
 
   bats:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - uses: ./.github/actions/test-bats
+      - name: Checkout consumer
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Checkout GitHub-Common (action source)
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: VitaliiAndreev/GitHub-Common
+          ref: ${{ github.workflow_sha }}
+          path: .github-common
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+      - uses: ./.github-common/.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
           # or workflow_call without override) makes the action read
