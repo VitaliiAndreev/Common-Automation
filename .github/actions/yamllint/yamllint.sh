@@ -68,6 +68,11 @@ for d in "${exclude_dirs[@]}"; do
     prune_expr+=(-path "./${d}")
 done
 
+# SC2312: `find` inside a process substitution masks its exit status.
+# Tolerated here - find only fails on unreadable paths inside the repo
+# checkout (which would break every other check too), and the empty-
+# result branch below already covers the "nothing found" case.
+# shellcheck disable=SC2312
 mapfile -t files < <(
     find . \( "${prune_expr[@]}" \) -prune \
         -o -type f \( -name '*.yml' -o -name '*.yaml' \) -print
