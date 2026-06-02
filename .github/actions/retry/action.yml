@@ -1,0 +1,54 @@
+name: retry
+description: >
+  Composite action wrapper around the .github/lib/retry.sh primitive.
+  Wraps an arbitrary bash command in a bounded retry loop with default
+  transient-failure classifiers covering Docker / OCI registry, generic
+  network, and HTTP 5xx errors - so a CI step that flakes on a
+  registry timeout recovers automatically instead of failing the run.
+
+  Thin pass-through: the action only exposes the three knobs locked in
+  problem.md (command, max attempts, transient patterns). For more
+  control (custom backoff strategy, per-call timeouts, multiple
+  retried commands in one step) source `.github/lib/retry.sh`
+  directly in a `run:` block instead.
+
+inputs:
+  command:
+    description: >
+      Bash command string to run under retry. Passed verbatim to
+      `bash -lc` so pipes, redirects, and `&&`/`||` are honoured.
+    required: true
+  max_attempts:
+    description: >
+      Hard cap on attempts including the first try. Exported as
+      RETRY_MAX_ATTEMPTS to the primitive.
+    required: false
+    default: "5"
+  transient_patterns:
+    description: >
+      Colon-separated list of <name>_classify functions deciding which
+      failures are retriable. Exported as RETRY_CLASSIFIERS. Default
+      covers the three shipped classifiers, matching the recommended
+      value for dockerised actions.
+    required: false
+    default: "classify_docker_registry:classify_network:classify_http_5xx"
+
+runs:
+  using: composite
+  steps:
+    - name: retry
+      shell: bash
+      # Wiring lives in retry-action.sh so the same entry point is
+      # both the composite's runtime and the bats suite's target -
+      # mirroring the convention every other action in this repo uses
+      # (ansible-lint, yamllint, actionlint, action-validator).
+      # GHCOMMON_REPO_ROOT is the env-var-primary half of the locked
+      # sourcing pattern (problem.md): when the action lives at
+      # `.github/actions/retry/`, the repo root is three levels up.
+      env:
+        GHCOMMON_REPO_ROOT: ${{ github.action_path }}/../../..
+        RETRY_COMMAND: ${{ inputs.command }}
+        RETRY_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
+        RETRY_CLASSIFIERS: ${{ inputs.transient_patterns }}
+      run: |
+        '${{ github.action_path }}/retry-action.sh'

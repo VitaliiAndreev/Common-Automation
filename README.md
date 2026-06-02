@@ -8,6 +8,7 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 ## Index
 
 - [Actions](#actions)
+- [Retry primitive](#retry-primitive)
 - [Local development](#local-development)
 - [Consuming](#consuming)
 - [Layout](#layout)
@@ -37,8 +38,153 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 |-------------------------------------------------|-------------------------------------------------------------------|
 | `.github/actions/assert-secret/`                | Fails a job with a clear message when a required secret is empty. |
 | `.github/actions/check-sh-executable/`          | Fails a job when any tracked `*.sh` is missing the executable bit. |
+| `.github/actions/retry/`                        | Wraps an arbitrary bash command in the [retry primitive](#retry-primitive) with default transient classifiers. |
 
-## Local development
+## Retry primitive
+
+`.github/lib/retry.sh` is a sourced helper that wraps any command in
+a bounded retry loop, so callers (including the dockerised lint
+actions in this repo) don't reimplement the same `until ... sleep ...`
+pattern when a transient failure - Docker registry timeout, DNS
+blip, HTTP 5xx - flakes a CI run. It lives alongside the other
+production sourced helpers (`fix-sh-executable.sh`,
+`get-*-version.sh`).
+
+Signature:
+
+```bash
+# shellcheck source=.github/lib/retry.sh
+source "${REPO_ROOT}/.github/lib/retry.sh"
+retry_command "docker build" -- docker build -t foo .
+```
+
+The first argument is an operation name used in diagnostics. `--`
+separates it from the command vector so the wrapped command can
+carry arbitrary flags.
+
+Configuration env vars (defaults shown):
+
+| Env var               | Default | Meaning                                              |
+|-----------------------|---------|------------------------------------------------------|
+| `RETRY_MAX_ATTEMPTS`  | `5`     | Hard cap on attempts including the first try.        |
+| `RETRY_MAX_SECONDS`   | `300`   | Wall-clock budget across all attempts.               |
+
+Between attempts the primitive calls a **backoff strategy** to
+compute the sleep duration. The strategy is a shell function whose
+name is held in `RETRY_BACKOFF_STRATEGY`; the primitive itself only
+calls it and caps the returned value to the remaining wall-clock
+budget. This indirection means a future caller needing a different
+shape (constant / linear / decorrelated jitter) registers a function
+and points the env var at it - no edits to the primitive.
+
+Strategy contract:
+
+| `$1`  | Retry index (1 for the first retry after attempt 1 fails). |
+| `$2`  | Remaining wall-clock budget in seconds (advisory).         |
+| stdout | Sleep duration in seconds (decimals allowed).             |
+| exit  | 0 on success; non-zero is a usage error.                   |
+
+The primitive caps the returned value to `$2` automatically, so a
+strategy can't sleep past the deadline by accident.
+
+The shipped default is `exponential_jitter_backoff`, which lives
+in its own file at
+`.github/lib/retry-strategies/exponential-jitter.sh` and is sourced
+automatically when `retry.sh` is loaded. The file doubles as the
+worked example for consumers writing their own strategies. The
+function follows the AWS SDK and Google SRE-book baseline: for
+retry index `R`, the unjittered interval is
+`min(INITIAL * MULTIPLIER^(R-1), MAX)`; jitter then multiplies by
+`1 + uniform(-RATIO, +RATIO)`. Its knobs:
+
+| Env var                          | Default | Meaning                                                  |
+|----------------------------------|---------|----------------------------------------------------------|
+| `RETRY_BACKOFF_INITIAL_SECONDS`  | `2`     | Base sleep after the first failed attempt.               |
+| `RETRY_BACKOFF_MAX_SECONDS`      | `60`    | Cap on the unjittered sleep, applied before jitter.      |
+| `RETRY_BACKOFF_MULTIPLIER`       | `2`     | Growth factor per retry index.                           |
+| `RETRY_BACKOFF_JITTER_RATIO`     | `0.3`   | Symmetric jitter band (`0.3` = +/-30%). `0` disables.    |
+
+Registering a custom strategy:
+
+```bash
+# In a file sourced before retry_command runs:
+my_constant_backoff() {
+    # $1 = retry index, $2 = remaining seconds (ignored here).
+    echo "5.000"
+}
+export -f my_constant_backoff
+export RETRY_BACKOFF_STRATEGY=my_constant_backoff
+```
+
+Between the failed attempt and the backoff sleep, the primitive runs
+**classifiers** to decide whether the failure is worth retrying at
+all. A classifier is a shell function named `<name>_classify`
+listed in `RETRY_CLASSIFIERS` (colon-separated). Each is invoked with
+the failed attempt's exit code, the path to its captured stdout, and
+the path to its captured stderr; it returns 0 to mark the failure
+retriable and non-zero to mark it permanent. Default is an empty
+list, which preserves the always-retry behaviour described above -
+opt in to triage by setting the env var.
+
+Classifier contract:
+
+| `$1`   | Exit code from the failed attempt.                       |
+| `$2`   | Path to a file containing the attempt's stdout.          |
+| `$3`   | Path to a file containing the attempt's stderr.          |
+| exit 0 | Failure is retriable.                                    |
+| exit !0 | Failure is permanent (its stderr is surfaced verbatim). |
+
+Multiple classifiers OR: any accept triggers a retry; all reject
+makes the primitive return the failed exit code immediately, naming
+the last rejector and its stderr in the `retry:` diagnostic so the
+reason is visible without re-running. While classifiers are active,
+the wrapped command's stdout / stderr are tee'd to capture files for
+inspection AND still forwarded to the caller's fds in real time - no
+swallowing.
+
+Three default classifiers ship out of the box, each living in its
+own file under `.github/lib/retry-classifiers/` and sourced
+automatically when `retry.sh` is loaded. All three match
+case-insensitively against the captured stdout *and* stderr - which
+fd carries the error varies by tool, so scanning both keeps the
+classifier from missing real transients.
+
+| Classifier                  | Patterns it accepts as retriable                                                                                                                                                                                                  |
+|-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `classify_docker_registry`  | `dial tcp .*: i/o timeout`, `dial tcp .*: connection refused`, `failed to do request: Head .* dial tcp`, `received unexpected HTTP status: 5[0-9][0-9]`, `TLS handshake timeout`, `unexpected EOF`.                                |
+| `classify_network`          | `Temporary failure in name resolution`, `Could not resolve host`, `Connection timed out`, `Connection reset by peer`, `Network is unreachable`.                                                                                    |
+| `classify_http_5xx`         | `HTTP/<version> 5[0-9][0-9]`, `Server Error: 5[0-9][0-9]`. 4xx is deliberately not matched - those are permanent for the caller (RFC 9110 section 15.6).                                                                            |
+
+Recommended default for dockerised actions (the value the composite
+action in step 5 ships with):
+
+```bash
+export RETRY_CLASSIFIERS=classify_docker_registry:classify_network:classify_http_5xx
+```
+
+The four in-repo lint actions (ansible-lint, yamllint, actionlint,
+action-validator) adopt this default in steps 6-9.
+
+Output is passthrough: the wrapped command's stdout / stderr reach
+the caller verbatim. Only the primitive's own messages carry the
+`retry:` prefix, and they always go to stderr.
+
+### Composite action
+
+For workflows that prefer a YAML target over sourcing the primitive
+in a `run:` block, `.github/actions/retry/` is a thin pass-through
+exposing three inputs (`command`, `max_attempts`, `transient_patterns`).
+The defaults match the recommended dockerised-action set above. See
+[`.github/actions/retry/README.md`](.github/actions/retry/README.md)
+for the input contract and worked example. One-line usage:
+
+```yaml
+- uses: VitaliiAndreev/GitHub-Common/.github/actions/retry@v1
+  with:
+    command: docker build -t example:ci .
+```
+
+
 
 Production bash (composite-action logic) is extracted into `*.sh`
 files alongside each action and unit-tested with
@@ -175,6 +321,11 @@ GitHub-Common/
 │   │   │   ├── yamllint.bats            # unit tests
 │   │   │   ├── yamllint.config.yml      # bundled default ruleset (when consumer has none)
 │   │   │   ├── yamllint.sh              # logic (in-repo Docker image, pinned yamllint)
+│   │   ├── retry/
+│   │   │   ├── action.yml               # composite, invokes retry-action.sh
+│   │   │   ├── README.md                # input contract + power-user pointer
+│   │   │   ├── retry-action.bats        # end-to-end tests for the composite
+│   │   │   └── retry-action.sh          # sources retry.sh, calls retry_command
 │   │   └── ansible-lint/
 │   │       ├── action.yml               # composite, invokes the .sh
 │   │       └── Dockerfile               # pip-installs pinned ansible-lint + ansible-core
@@ -188,6 +339,13 @@ GitHub-Common/
 │   │   ├── get-ansible-lint-version.sh  # resolves ansible-lint version (override or versions.env)
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)
 │   │   ├── get-yamllint-version.sh      # resolves yamllint version (override or versions.env)
+│   │   ├── retry.sh                     # retry primitive (sourced; auto-loads shipped strategies)
+│   │   ├── retry-classifiers/           # one <name>_classify per file; sourced on load
+│   │   │   ├── docker-registry.sh       # docker / OCI registry transients
+│   │   │   ├── http-5xx.sh              # HTTP 5xx in tool output
+│   │   │   └── network.sh               # generic network transients (DNS, conn reset, ...)
+│   │   ├── retry-strategies/            # one <name>_backoff per file; sourced on load
+│   │   │   └── exponential-jitter.sh    # default strategy: exponential growth + symmetric jitter
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   └── workflows/
 │       ├── ci-bash.yml                  # lint + bats + +x gate on PR/push + workflow_call

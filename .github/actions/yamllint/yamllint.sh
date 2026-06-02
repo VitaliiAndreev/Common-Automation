@@ -44,6 +44,17 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Resolve the retry primitive via the locked env-var-primary /
+# relative-path-fallback contract from problem.md: in a workflow the
+# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# authoritative even if the action directory ever moves; outside
+# Actions (the pre-push runner, ad-hoc invocations) the env var is
+# unset and SCRIPT_DIR/../../.. resolves to the same file as long as
+# the repo layout is intact.
+repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+# shellcheck source=../../lib/retry.sh
+source "${repo_root}/.github/lib/retry.sh"
+
 # Directories the action never lints. Workflows and composite
 # actions are covered by actionlint / action-validator against their
 # proper schemas; the remaining entries are non-source trees that
@@ -108,10 +119,19 @@ image="github-common/yamllint:${version}"
 # a build failure (e.g. PyPI unreachable) surfaces.
 if ! docker image inspect "${image}" >/dev/null 2>&1; then
     echo "::notice::building ${image} (first run for this version)"
-    docker build \
-        --build-arg "VERSION=${version}" \
-        -t "${image}" \
-        "${script_dir}"
+    # Wrap the build in the retry primitive so a transient registry
+    # blip doesn't fail the run - default classifiers cover docker
+    # registry, network, and HTTP 5xx. `docker run` (below) is NOT
+    # wrapped: a lint failure is a real failure, not transient. The
+    # `|| exit $?` form lets `set -e` ignore the inner non-zero
+    # attempts (errexit-inheritance rule) so retry_command can loop.
+    RETRY_CLASSIFIERS="${RETRY_CLASSIFIERS:-classify_docker_registry:classify_network:classify_http_5xx}" \
+        retry_command "yamllint docker build" -- \
+        docker build \
+            --build-arg "VERSION=${version}" \
+            -t "${image}" \
+            "${script_dir}" \
+        || exit $?
 fi
 
 # Two mounts: the repo at /work (where yamllint sees the files and
