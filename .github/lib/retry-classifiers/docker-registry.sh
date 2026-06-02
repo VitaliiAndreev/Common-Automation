@@ -19,6 +19,7 @@
 #   - received unexpected HTTP status: 5[0-9][0-9]   (docker pulls)
 #   - TLS handshake timeout
 #   - unexpected EOF                                  (truncated response)
+#   - context deadline exceeded                       (Go ctx timeout: daemon / buildx)
 classify_docker_registry() {
     local _exit_code="$1" stdout_file="$2" stderr_file="$3"
     # Both streams are scanned: docker writes most progress to stderr
@@ -29,6 +30,6 @@ classify_docker_registry() {
     # patterns when scanning more than one file, which is exactly the
     # call shape the classifier contract requires.
     grep -E -i -q \
-        'dial tcp .*: i/o timeout|dial tcp .*: connection refused|failed to do request: Head .* dial tcp|received unexpected HTTP status: 5[0-9][0-9]|TLS handshake timeout|unexpected EOF' \
+        'dial tcp .*: i/o timeout|dial tcp .*: connection refused|failed to do request: Head .* dial tcp|received unexpected HTTP status: 5[0-9][0-9]|TLS handshake timeout|unexpected EOF|context deadline exceeded' \
         "${stdout_file}" "${stderr_file}"
 }

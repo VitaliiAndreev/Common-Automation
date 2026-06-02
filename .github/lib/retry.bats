@@ -474,6 +474,25 @@ make_capture() {
     [ "${status}" -eq 0 ]
 }
 
+@test "classify_docker_registry: daemon context deadline matches" {
+    # Verbatim wording from the Infrastructure-VM-Ansible feature-02 CI
+    # failure that motivated this feature: docker daemon's Go context
+    # deadline fires before TCP / TLS report their own timeout.
+    paths="$(make_capture 'Error response from daemon: Get "https://registry-1.docker.io/v2/": context deadline exceeded')"
+    out="${paths%|*}"; err="${paths##*|}"
+    run classify_docker_registry 1 "${out}" "${err}"
+    [ "${status}" -eq 0 ]
+}
+
+@test "classify_docker_registry: buildx context deadline matches" {
+    # BuildKit / containerd surface form - same root cause, different
+    # client path. Both wordings must classify as retriable.
+    paths="$(make_capture 'failed to copy: httpReadSeeker: failed open: failed to do request: Head "https://registry-1.docker.io/v2/library/alpine/manifests/3.20": context deadline exceeded')"
+    out="${paths%|*}"; err="${paths##*|}"
+    run classify_docker_registry 1 "${out}" "${err}"
+    [ "${status}" -eq 0 ]
+}
+
 @test "classify_docker_registry: case-insensitive match" {
     # docker's wording is lower-case in practice, but other tools
     # emit "Dial Tcp" or "TLS Handshake Timeout"; the case-insensitive
@@ -639,6 +658,21 @@ make_capture() {
     RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
         RETRY_CLASSIFIERS=classify_docker_registry \
         run retry_command "registry" -- "${stub}"
+    [ "${status}" -eq 0 ]
+    [ "$(attempt_count)" -eq 2 ]
+    [[ "${output}" == *"retriable via classify_docker_registry"* ]]
+}
+
+@test "end-to-end: docker-registry classifier triggers retry on daemon context deadline" {
+    # Mirrors the registry-timeout case shape; the stub emits the
+    # daemon-side wording from the Infrastructure-VM-Ansible feature-02
+    # failure that motivated this feature, then succeeds on the second
+    # attempt. Proves the new pattern flows end-to-end through the
+    # shipped classifier without any caller-side changes.
+    stub="$(make_stub 'if (( ATTEMPT < 2 )); then echo "Error response from daemon: Get \"https://registry-1.docker.io/v2/\": context deadline exceeded" >&2; exit 1; fi; exit 0')"
+    RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        RETRY_CLASSIFIERS=classify_docker_registry \
+        run retry_command "registry-ctx-deadline" -- "${stub}"
     [ "${status}" -eq 0 ]
     [ "$(attempt_count)" -eq 2 ]
     [[ "${output}" == *"retriable via classify_docker_registry"* ]]

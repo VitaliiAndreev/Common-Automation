@@ -151,7 +151,7 @@ classifier from missing real transients.
 
 | Classifier                  | Patterns it accepts as retriable                                                                                                                                                                                                  |
 |-----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `classify_docker_registry`  | `dial tcp .*: i/o timeout`, `dial tcp .*: connection refused`, `failed to do request: Head .* dial tcp`, `received unexpected HTTP status: 5[0-9][0-9]`, `TLS handshake timeout`, `unexpected EOF`.                                |
+| `classify_docker_registry`  | `dial tcp .*: i/o timeout`, `dial tcp .*: connection refused`, `failed to do request: Head .* dial tcp`, `received unexpected HTTP status: 5[0-9][0-9]`, `TLS handshake timeout`, `unexpected EOF`, `context deadline exceeded`.   |
 | `classify_network`          | `Temporary failure in name resolution`, `Could not resolve host`, `Connection timed out`, `Connection reset by peer`, `Network is unreachable`.                                                                                    |
 | `classify_http_5xx`         | `HTTP/<version> 5[0-9][0-9]`, `Server Error: 5[0-9][0-9]`. 4xx is deliberately not matched - those are permanent for the caller (RFC 9110 section 15.6).                                                                            |
 

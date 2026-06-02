@@ -29,6 +29,12 @@ errors, and HTTP 5xx responses. See the
 [top-level Retry primitive subsection](../../../README.md#retry-primitive)
 for the patterns each classifier matches.
 
+The registry-transient set also covers Go context-deadline timeouts
+(the `context deadline exceeded` wording the docker daemon and buildx
+emit when an internal Go-context boundary fires before the underlying
+TCP / TLS layer reports its own failure) alongside the existing
+TCP / TLS / EOF / 5xx patterns.
+
 ## Usage
 
 ```yaml
