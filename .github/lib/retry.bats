@@ -18,6 +18,7 @@ setup() {
           RETRY_BACKOFF_INITIAL_SECONDS RETRY_BACKOFF_MAX_SECONDS \
           RETRY_BACKOFF_MULTIPLIER RETRY_BACKOFF_JITTER_RATIO \
           RETRY_BACKOFF_JITTER_SEED
+    unset RETRY_CLASSIFIERS
     # shellcheck source=./retry.sh
     source "${BATS_TEST_DIRNAME}/retry.sh"
 }
@@ -269,6 +270,143 @@ assert_within() {
     info="$(declare -F exponential_jitter_backoff)"
     shopt -u extdebug
     [[ "${info}" == *"retry-strategies/exponential-jitter.sh"* ]]
+}
+
+# --- Step 3: pluggable classifier strategy ---------------------------
+#
+# Classifiers decide retriable vs permanent. With RETRY_CLASSIFIERS
+# unset (the default) behaviour matches steps 1-2: every non-zero exit
+# is retried. With one or more classifiers configured, the primitive
+# captures stdout/stderr to inspectable files and ORs the classifiers'
+# verdicts - any accept means retry, all reject means fail fast.
+
+@test "classifier: unset RETRY_CLASSIFIERS keeps step-1/2 always-retry behaviour" {
+    # Sanity-check: with classifiers off, a permanent-looking failure
+    # still retries until the attempt budget is exhausted - i.e. the
+    # default path is unchanged from step 2.
+    stub="$(make_stub 'echo "syntax error" >&2; exit 1')"
+    RETRY_MAX_ATTEMPTS=3 RETRY_MAX_SECONDS=30 \
+        RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        run retry_command "always-retry" -- "${stub}"
+    [ "${status}" -eq 1 ]
+    [ "$(attempt_count)" -eq 3 ]
+    [[ "${output}" == *"exhausted attempts (3)"* ]]
+}
+
+@test "classifier: single accepting classifier triggers retry and is named in diagnostic" {
+    accept_all_classify() { return 0; }
+    export -f accept_all_classify
+
+    stub="$(make_stub 'if (( ATTEMPT < 2 )); then exit 1; fi; exit 0')"
+    RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        RETRY_CLASSIFIERS=accept_all_classify \
+        run retry_command "accepted" -- "${stub}"
+    [ "${status}" -eq 0 ]
+    [ "$(attempt_count)" -eq 2 ]
+    [[ "${output}" == *"retriable via accept_all_classify"* ]]
+}
+
+@test "classifier: single rejecting classifier fails fast with rejector + its stderr" {
+    # Rejector writes a reason to its own stderr - the primitive
+    # surfaces that in the permanent-failure diagnostic so log readers
+    # don't have to re-run with set -x to see why.
+    reject_with_reason_classify() {
+        echo "not a known transient signature" >&2
+        return 1
+    }
+    export -f reject_with_reason_classify
+
+    stub="$(make_stub 'exit 7')"
+    RETRY_MAX_ATTEMPTS=5 RETRY_MAX_SECONDS=30 \
+        RETRY_CLASSIFIERS=reject_with_reason_classify \
+        run retry_command "perm" -- "${stub}"
+    [ "${status}" -eq 7 ]
+    # Only one attempt: classifier rejection short-circuits the loop.
+    [ "$(attempt_count)" -eq 1 ]
+    [[ "${output}" == *"permanent (exit 7)"* ]]
+    [[ "${output}" == *"rejected by reject_with_reason_classify"* ]]
+    [[ "${output}" == *"not a known transient signature"* ]]
+}
+
+@test "classifier: OR-semantics - reject-then-accept order still retries" {
+    # Verifies the OR fold: a leading rejector must not prevent a
+    # later classifier from triggering the retry.
+    reject_first_classify() { return 1; }
+    accept_second_classify() { return 0; }
+    export -f reject_first_classify accept_second_classify
+
+    stub="$(make_stub 'if (( ATTEMPT < 2 )); then exit 1; fi; exit 0')"
+    RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        RETRY_CLASSIFIERS=reject_first_classify:accept_second_classify \
+        run retry_command "or-fold" -- "${stub}"
+    [ "${status}" -eq 0 ]
+    [ "$(attempt_count)" -eq 2 ]
+    [[ "${output}" == *"retriable via accept_second_classify"* ]]
+}
+
+@test "classifier: receives the captured stdout and stderr from the failed attempt" {
+    # The classifier is the only place that proves what was captured.
+    # We write a sentinel to both streams, have the classifier assert
+    # the captures contain that sentinel, and use its accept/reject to
+    # surface the result back to the test.
+    sentinel_stdout="STDOUT-SENTINEL-7Q2"
+    sentinel_stderr="STDERR-SENTINEL-7Q2"
+    capture_check_classify() {
+        local exit_code="$1" stdout_file="$2" stderr_file="$3"
+        # Echo a token the test can grep for, regardless of accept/reject.
+        echo "capture-check: exit=${exit_code}" >&2
+        if grep -q "STDOUT-SENTINEL-7Q2" "${stdout_file}" \
+                && grep -q "STDERR-SENTINEL-7Q2" "${stderr_file}"; then
+            return 0
+        fi
+        echo "capture-check: sentinel missing" >&2
+        return 1
+    }
+    export -f capture_check_classify
+
+    stub="$(make_stub "echo '${sentinel_stdout}'; echo '${sentinel_stderr}' >&2; if (( ATTEMPT < 2 )); then exit 1; fi; exit 0")"
+    RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        RETRY_CLASSIFIERS=capture_check_classify \
+        run retry_command "captures" -- "${stub}"
+    [ "${status}" -eq 0 ]
+    [ "$(attempt_count)" -eq 2 ]
+    # Classifier saw both sentinels and accepted - so retry happened.
+    [[ "${output}" == *"retriable via capture_check_classify"* ]]
+    # And there is no "sentinel missing" message in the output.
+    [[ "${output}" != *"sentinel missing"* ]]
+}
+
+@test "classifier: live output reaches caller while capture is in progress" {
+    # The tee'd capture must not swallow output. The stub writes a
+    # well-known marker, the classifier always accepts, and the test
+    # asserts the marker is visible in the combined run-output (which
+    # is the caller's stdout/stderr) - independent of any classifier
+    # inspection.
+    accept_all_classify() { return 0; }
+    export -f accept_all_classify
+
+    stub="$(make_stub 'echo "LIVE-STDOUT-MARKER"; echo "LIVE-STDERR-MARKER" >&2; if (( ATTEMPT < 2 )); then exit 1; fi; exit 0')"
+    RETRY_MAX_SECONDS=30 RETRY_BACKOFF_INITIAL_SECONDS=0 RETRY_BACKOFF_JITTER_RATIO=0 \
+        RETRY_CLASSIFIERS=accept_all_classify \
+        run retry_command "passthrough" -- "${stub}"
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"LIVE-STDOUT-MARKER"* ]]
+    [[ "${output}" == *"LIVE-STDERR-MARKER"* ]]
+}
+
+@test "classifier: unknown classifier errors with a clear message (exit 2)" {
+    # Mirrors the unknown-strategy contract: a typo'd RETRY_CLASSIFIERS
+    # entry must surface immediately with a usage error, not silently
+    # become a never-matching rejector that flips every failure into
+    # "permanent".
+    stub="$(make_stub 'exit 1')"
+    RETRY_MAX_ATTEMPTS=3 RETRY_MAX_SECONDS=30 \
+        RETRY_CLASSIFIERS=does_not_exist_classify \
+        run retry_command "bad-classifier" -- "${stub}"
+    [ "${status}" -eq 2 ]
+    [[ "${output}" == *"unknown classifier 'does_not_exist_classify'"* ]]
+    [[ "${output}" == *"RETRY_CLASSIFIERS"* ]]
+    [ "$(attempt_count)" -eq 1 ]
 }
 
 @test "registry: unknown strategy errors with a clear message (exit 2)" {

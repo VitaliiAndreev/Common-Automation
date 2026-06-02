@@ -115,9 +115,36 @@ export -f my_constant_backoff
 export RETRY_BACKOFF_STRATEGY=my_constant_backoff
 ```
 
-Pluggable classifiers (so syntax errors and 404s fail fast instead of
-stalling the full budget) land in a subsequent commit, with default
-classifiers for Docker registry / network / HTTP 5xx failures.
+Between the failed attempt and the backoff sleep, the primitive runs
+**classifiers** to decide whether the failure is worth retrying at
+all. A classifier is a shell function named `<name>_classify`
+listed in `RETRY_CLASSIFIERS` (colon-separated). Each is invoked with
+the failed attempt's exit code, the path to its captured stdout, and
+the path to its captured stderr; it returns 0 to mark the failure
+retriable and non-zero to mark it permanent. Default is an empty
+list, which preserves the always-retry behaviour described above -
+opt in to triage by setting the env var.
+
+Classifier contract:
+
+| `$1`   | Exit code from the failed attempt.                       |
+| `$2`   | Path to a file containing the attempt's stdout.          |
+| `$3`   | Path to a file containing the attempt's stderr.          |
+| exit 0 | Failure is retriable.                                    |
+| exit !0 | Failure is permanent (its stderr is surfaced verbatim). |
+
+Multiple classifiers OR: any accept triggers a retry; all reject
+makes the primitive return the failed exit code immediately, naming
+the last rejector and its stderr in the `retry:` diagnostic so the
+reason is visible without re-running. While classifiers are active,
+the wrapped command's stdout / stderr are tee'd to capture files for
+inspection AND still forwarded to the caller's fds in real time - no
+swallowing.
+
+The default-classifier batch (`classify_docker_registry`,
+`classify_network`, `classify_http_5xx`) lands in a subsequent
+commit; until then, callers wanting triage register their own
+`*_classify` function and point `RETRY_CLASSIFIERS` at it.
 
 Output is passthrough: the wrapped command's stdout / stderr reach
 the caller verbatim. Only the primitive's own messages carry the
