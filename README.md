@@ -68,11 +68,56 @@ Configuration env vars (defaults shown):
 | `RETRY_MAX_ATTEMPTS`  | `5`     | Hard cap on attempts including the first try.        |
 | `RETRY_MAX_SECONDS`   | `300`   | Wall-clock budget across all attempts.               |
 
-Between attempts the primitive sleeps a fixed 1 s. Exponential
-backoff with jitter replaces this in a subsequent commit. Pluggable
-classifiers (so syntax errors and 404s fail fast instead of stalling
-the full budget) land after that, with default classifiers for
-Docker registry / network / HTTP 5xx failures.
+Between attempts the primitive calls a **backoff strategy** to
+compute the sleep duration. The strategy is a shell function whose
+name is held in `RETRY_BACKOFF_STRATEGY`; the primitive itself only
+calls it and caps the returned value to the remaining wall-clock
+budget. This indirection means a future caller needing a different
+shape (constant / linear / decorrelated jitter) registers a function
+and points the env var at it - no edits to the primitive.
+
+Strategy contract:
+
+| `$1`  | Retry index (1 for the first retry after attempt 1 fails). |
+| `$2`  | Remaining wall-clock budget in seconds (advisory).         |
+| stdout | Sleep duration in seconds (decimals allowed).             |
+| exit  | 0 on success; non-zero is a usage error.                   |
+
+The primitive caps the returned value to `$2` automatically, so a
+strategy can't sleep past the deadline by accident.
+
+The shipped default is `exponential_jitter_backoff`, which lives
+in its own file at
+`.github/lib/retry-strategies/exponential-jitter.sh` and is sourced
+automatically when `retry.sh` is loaded. The file doubles as the
+worked example for consumers writing their own strategies. The
+function follows the AWS SDK and Google SRE-book baseline: for
+retry index `R`, the unjittered interval is
+`min(INITIAL * MULTIPLIER^(R-1), MAX)`; jitter then multiplies by
+`1 + uniform(-RATIO, +RATIO)`. Its knobs:
+
+| Env var                          | Default | Meaning                                                  |
+|----------------------------------|---------|----------------------------------------------------------|
+| `RETRY_BACKOFF_INITIAL_SECONDS`  | `2`     | Base sleep after the first failed attempt.               |
+| `RETRY_BACKOFF_MAX_SECONDS`      | `60`    | Cap on the unjittered sleep, applied before jitter.      |
+| `RETRY_BACKOFF_MULTIPLIER`       | `2`     | Growth factor per retry index.                           |
+| `RETRY_BACKOFF_JITTER_RATIO`     | `0.3`   | Symmetric jitter band (`0.3` = +/-30%). `0` disables.    |
+
+Registering a custom strategy:
+
+```bash
+# In a file sourced before retry_command runs:
+my_constant_backoff() {
+    # $1 = retry index, $2 = remaining seconds (ignored here).
+    echo "5.000"
+}
+export -f my_constant_backoff
+export RETRY_BACKOFF_STRATEGY=my_constant_backoff
+```
+
+Pluggable classifiers (so syntax errors and 404s fail fast instead of
+stalling the full budget) land in a subsequent commit, with default
+classifiers for Docker registry / network / HTTP 5xx failures.
 
 Output is passthrough: the wrapped command's stdout / stderr reach
 the caller verbatim. Only the primitive's own messages carry the
@@ -228,6 +273,9 @@ GitHub-Common/
 │   │   ├── get-ansible-lint-version.sh  # resolves ansible-lint version (override or versions.env)
 │   │   ├── get-bats-version.sh          # resolves bats version (override or versions.env)
 │   │   ├── get-yamllint-version.sh      # resolves yamllint version (override or versions.env)
+│   │   ├── retry.sh                     # retry primitive (sourced; auto-loads shipped strategies)
+│   │   ├── retry-strategies/            # one <name>_backoff per file; sourced on load
+│   │   │   └── exponential-jitter.sh    # default strategy: exponential growth + symmetric jitter
 │   │   ├── versions.env                 # single source of truth for tool versions
 │   └── workflows/
 │       ├── ci-bash.yml                  # lint + bats + +x gate on PR/push + workflow_call
