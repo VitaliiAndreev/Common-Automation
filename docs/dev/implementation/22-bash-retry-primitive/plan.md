@@ -6,7 +6,7 @@ off-the-shelf survey.
 ## Index
 
 - [Step 1 - Primitive core: budget enforcement](#step-1---primitive-core-budget-enforcement)
-- [Step 2 - Backoff strategy: exponential with jitter](#step-2---backoff-strategy-exponential-with-jitter)
+- [Step 2 - Backoff strategy: pluggable, defaulting to exponential with jitter](#step-2---backoff-strategy-pluggable-defaulting-to-exponential-with-jitter)
 - [Step 3 - Classifier strategy: pluggable transient detection](#step-3---classifier-strategy-pluggable-transient-detection)
 - [Step 4 - Default transient classifiers (docker, network, HTTP 5xx)](#step-4---default-transient-classifiers-docker-network-http-5xx)
 - [Step 5 - Composite action wrapper](#step-5---composite-action-wrapper)
@@ -86,51 +86,110 @@ flowchart TD
 
 ---
 
-## Step 2 - Backoff strategy: exponential with jitter
+## Step 2 - Backoff strategy: pluggable, defaulting to exponential with jitter
 
 **Reason:** Fixed 1 s sleeps cause thundering herd during a real
-incident (every consumer's retries land at the same offsets).
-Exponential backoff with jitter is the industry baseline (AWS SDK,
-Google SRE book) - it spreads the retries across time without losing
-the convergence guarantee. Configurable so different operations can
-tune.
+incident. Exponential-with-jitter is the industry baseline (AWS SDK,
+Google SRE book). Making the strategy pluggable from the start -
+symmetric with the classifier registry landing in step 3 - means a
+future consumer needing constant / linear / Fibonacci / decorrelated-
+jitter backoff registers a function instead of forking the primitive.
+The cost is a single env-var indirection.
 
 **Files**
 
-- `.github/lib/retry.sh` (modified) - replace the fixed 1 s sleep with a backoff function.
-- `.github/lib/retry.bats` (modified) - add backoff cases.
+- `.github/lib/retry-strategies/exponential-jitter.sh` (new) -
+  defines `exponential_jitter_backoff` as a standalone sourced file.
+  No other content - this file is itself an example of the consumer
+  strategy-registration pattern.
+- `.github/lib/retry.sh` (modified) - replace fixed sleep with a
+  registry call. On load, source every `*.sh` under
+  `${GHCOMMON_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-strategies/`
+  so shipped strategies are available without callers having to
+  source them individually. The primitive resolves the strategy via
+  `RETRY_BACKOFF_STRATEGY` (default `exponential_jitter_backoff`)
+  and invokes it as `"${strategy}" <retry_index> <remaining_seconds>`.
+- `.github/lib/retry.bats` (modified) - registry, default-strategy
+  math, custom-strategy injection, unknown-strategy error, and a
+  source-of-truth case asserting `exponential_jitter_backoff` is
+  defined in `retry-strategies/exponential-jitter.sh` (via
+  `declare -F` + `shopt -s extdebug`).
 
-**Behaviour**
+**Strategy contract**
 
-- New env vars (all optional):
+A backoff strategy is a shell function named `<name>_backoff` (the
+suffix is convention, not enforced) with signature:
+
+- `$1` - retry index (1 for the first retry after attempt 1 failed)
+- `$2` - remaining wall-clock budget in seconds
+- stdout - the sleep duration in seconds (decimal allowed)
+- exit 0 on success; any non-zero is a usage error for the primitive
+
+The primitive caps the returned value to `$2` before sleeping (no
+strategy can over-run the deadline by accident).
+
+**Default strategy: `exponential_jitter_backoff`**
+
+- Env vars (all optional):
   - `RETRY_BACKOFF_INITIAL_SECONDS` (default `2`)
   - `RETRY_BACKOFF_MAX_SECONDS` (default `60`)
   - `RETRY_BACKOFF_MULTIPLIER` (default `2`)
-  - `RETRY_BACKOFF_JITTER_RATIO` (default `0.3`, i.e. ±30% jitter)
-- For attempt N (1-indexed), the unjittered interval is
-  `min(INITIAL * MULTIPLIER^(N-1), MAX)`.
-- Apply jitter: multiply by `1 + uniform(-JITTER_RATIO, +JITTER_RATIO)`.
-- Cap so the sleep does not push past `RETRY_MAX_SECONDS` (no point waiting longer than the budget allows).
+  - `RETRY_BACKOFF_JITTER_RATIO` (default `0.3`, +/-30% jitter)
+  - `RETRY_BACKOFF_JITTER_SEED` (test-only, deterministic sampling)
+- For retry index `R`, unjittered = `min(INITIAL * MULTIPLIER^(R-1), MAX)`.
+- Jittered = unjittered * `(1 + uniform(-RATIO, +RATIO))`.
+
+**Selecting a custom strategy**
+
+Consumer sources a file defining e.g. `my_constant_backoff()` then
+sets `RETRY_BACKOFF_STRATEGY=my_constant_backoff` in the calling
+env. No primitive edit needed.
 
 **Tests (bats)**
 
-- Defaults: attempt 2 sleeps within `[2 * (1 - 0.3), 2 * (1 + 0.3)] = [1.4, 2.6]` s. Attempt 3 within `[4 * 0.7, 4 * 1.3] = [2.8, 5.2]` s. Sampling enforced via a deterministic-seed override (`RETRY_BACKOFF_JITTER_SEED` for tests).
-- `RETRY_BACKOFF_MAX_SECONDS=5` clamps long attempts to 5 s.
-- `RETRY_BACKOFF_JITTER_RATIO=0` gives deterministic exponential (no jitter).
-- Backoff that would push past the deadline is shortened to the remaining time.
-- Step-2 cases still pass (the contract for budget enforcement and output preservation is unchanged).
+- Default selection: unset `RETRY_BACKOFF_STRATEGY` -> primitive uses
+  `exponential_jitter_backoff`.
+- Default math: retry index 1 lands in [1.4, 2.6] with default
+  jitter and a fixed seed; retry index 2 in [2.8, 5.2].
+- `RETRY_BACKOFF_JITTER_RATIO=0` -> deterministic exponential.
+- `RETRY_BACKOFF_MAX_SECONDS=5` clamps long retries before jitter.
+- Backoff past the deadline is shortened to remaining time (cap is
+  in the primitive, not the strategy - applies to all strategies).
+- Custom strategy injection: define `const2_backoff` returning `2.000`,
+  set `RETRY_BACKOFF_STRATEGY=const2_backoff`, drive retry_command
+  end-to-end and confirm the primitive sleeps that constant.
+- Unknown strategy: `RETRY_BACKOFF_STRATEGY=nope_backoff` ->
+  primitive errors with a clear message (function-not-found) on
+  the first retry, returns exit 2.
+- Deterministic seed makes default-strategy jitter reproducible.
 
 **README update**
 
-- `README.md` "Retry primitive" subsection - replace the "fixed 1 s sleep" sentence with a Backoff paragraph documenting the four `RETRY_BACKOFF_*` env vars, their defaults, the unjittered formula, and the deadline-cap rule. Mention that exponential-with-jitter is the AWS / Google-SRE baseline so readers know why it's the default.
+- `README.md` "Retry primitive" subsection - replace the current
+  exponential-backoff paragraph with a Strategy paragraph
+  documenting:
+  - the registry contract (`<name>_backoff <retry_index>
+    <remaining>` -> sleep seconds; `RETRY_BACKOFF_STRATEGY`
+    selects, default `exponential_jitter_backoff`).
+  - the default strategy's four config env vars and formula.
+  - a one-block example of registering a custom strategy in a
+    sourced file.
+  - the deadline-cap rule (lives in the primitive, applies to
+    every strategy).
 
 ```mermaid
 flowchart LR
-    N[attempt N] --> I[initial * mult^N-1]
-    I --> M[cap at MAX]
-    M --> J[apply ±jitter]
-    J --> D[cap at remaining deadline]
-    D --> S[sleep]
+    A[retry_command]
+    A -->|fail, will retry| B[lookup RETRY_BACKOFF_STRATEGY]
+    B --> C{strategy is a function?}
+    C -- no --> X[stderr: unknown strategy, exit 2]
+    C -- yes --> D[call strategy retry_idx remaining]
+    D --> E[cap result at remaining]
+    E --> F[sleep]
+    subgraph shipped [Shipped strategies]
+        EJ["exponential_jitter_backoff<br/>(.github/lib/retry-strategies/<br/>exponential-jitter.sh)"]
+    end
+    B -.default.-> EJ
 ```
 
 ---
@@ -187,8 +246,20 @@ primitive. The four lint actions migrate against these in steps 6-9.
 
 **Files**
 
-- `.github/lib/retry.sh` (modified) - define `classify_docker_registry`, `classify_network`, `classify_http_5xx` functions; document the patterns they match.
-- `.github/lib/retry.bats` (modified) - per-classifier cases.
+- `.github/lib/retry-classifiers/docker-registry.sh` (new) - defines
+  `classify_docker_registry`. Patterns documented in-file.
+- `.github/lib/retry-classifiers/network.sh` (new) - defines
+  `classify_network`.
+- `.github/lib/retry-classifiers/http-5xx.sh` (new) - defines
+  `classify_http_5xx`.
+- `.github/lib/retry.sh` (modified) - extend the on-load sourcing
+  pattern from step 2 to also source every `*.sh` under
+  `${GHCOMMON_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-classifiers/`,
+  so shipped classifiers are available without callers having to
+  source them individually.
+- `.github/lib/retry.bats` (modified) - per-classifier cases plus a
+  source-of-truth case per classifier asserting each is defined in
+  its dedicated `retry-classifiers/<name>.sh` file.
 
 **Behaviour**
 

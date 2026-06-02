@@ -95,9 +95,15 @@ cover the retry path.
   - *Strategy* — function that inspects exit code + stdout/stderr
     and returns retriable yes/no. Composable: callers OR multiple
     strategies together.
-  - *Backoff* — function that returns the next sleep interval given
-    the attempt number. Default: exponential with jitter, configurable
-    initial / max / multiplier.
+  - *Backoff* — a named function in a registry, selected via
+    `RETRY_BACKOFF_STRATEGY`, called as `<name> <retry_index>
+    <remaining_seconds>` and printing the sleep duration to stdout.
+    Symmetric with the classifier registry (step 3). Default
+    `exponential_jitter_backoff` ships with the primitive and is
+    configured via `RETRY_BACKOFF_INITIAL_SECONDS` / `_MAX_SECONDS`
+    / `_MULTIPLIER` / `_JITTER_RATIO`. Consumers register their own
+    `<name>_backoff` function in a sourced file and select it via
+    the env var — no edits to the primitive.
   - *Budget* — max attempts and total seconds; whichever ceiling
     fires first ends the loop.
 - **Default transient classifiers** ship with the primitive:
@@ -114,6 +120,18 @@ cover the retry path.
   `scripts/` stays the runner-side home (`run-tests.sh`,
   `_hold-window.sh`, ...); production sourced helpers live under
   `.github/lib/`.
+- **Default strategies and classifiers each live in their own file.**
+  The shipped default backoff strategy lives at
+  `.github/lib/retry-strategies/exponential-jitter.sh`. The shipped
+  default classifiers each live at
+  `.github/lib/retry-classifiers/<name>.sh` (one file per classifier).
+  `retry.sh` sources these on load via a `GHCOMMON_LIB_DIR`
+  env-var-primary / `$(dirname "${BASH_SOURCE[0]}")` fallback - same
+  shape as the action-level sourcing pattern, so callers can override
+  the lib directory for tests without forking the primitive.
+  Splitting per file makes the shipped defaults themselves examples
+  of the consumer registration pattern and scales without needing
+  later extraction.
 - **Fail-fast on permanent errors.** Auth (401/403), not-found
   (404), syntax errors, and any non-matching classifier propagate
   immediately so retries don't mask real failures.
