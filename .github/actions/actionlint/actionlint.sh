@@ -29,6 +29,17 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Resolve the retry primitive via the locked env-var-primary /
+# relative-path-fallback contract from problem.md: in a workflow the
+# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# authoritative even if the action directory ever moves; outside
+# Actions (the pre-push runner, ad-hoc invocations) the env var is
+# unset and SCRIPT_DIR/../../.. resolves to the same file as long as
+# the repo layout is intact.
+repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+# shellcheck source=../../lib/retry.sh
+source "${repo_root}/.github/lib/retry.sh"
+
 workflows_dir=".github/workflows"
 
 # -maxdepth 1 mirrors GitHub's own loader - only top-level *.yml under
@@ -48,6 +59,23 @@ fi
 
 version="$("${script_dir}/../../lib/get-actionlint-version.sh")"
 image="rhysd/actionlint:${version}"
+
+# Pull the pinned upstream image explicitly on first use rather than
+# letting `docker run` pull implicitly. Two reasons: it isolates the
+# registry-pull transient surface from the lint invocation (so retries
+# cannot mask a real lint failure - see step 8 of plan 22), and it
+# matches the build-once shape used by the sibling lint actions
+# (yamllint / ansible-lint / action-validator). `docker image inspect`
+# acts as the cache guard so a no-op run is just a cheap metadata
+# lookup. Unlike the siblings there is no Dockerfile here - actionlint
+# ships an official image, so the work to wrap is the pull, not a build.
+if ! docker image inspect "${image}" >/dev/null 2>&1; then
+    echo "::notice::pulling ${image} (first run for this version)"
+    RETRY_CLASSIFIERS="${RETRY_CLASSIFIERS:-classify_docker_registry:classify_network:classify_http_5xx}" \
+        retry_command "actionlint docker pull" -- \
+        docker pull "${image}" \
+        || exit $?
+fi
 
 # MSYS_NO_PATHCONV stops Git Bash on Windows from mangling the mount
 # path. -color keeps actionlint's annotations readable when the host
