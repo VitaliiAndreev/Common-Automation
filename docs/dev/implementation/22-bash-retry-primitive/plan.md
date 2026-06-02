@@ -427,22 +427,48 @@ flowchart LR
 
 **Reason:** Same pattern. Separate step for bisectability.
 
+**Scope deviation from steps 6-7:** actionlint uses the upstream
+`rhysd/actionlint:<version>` image directly - it has no in-repo
+Dockerfile and therefore no `docker build` to wrap. The transient
+surface that does exist is the registry pull on first run, which
+currently happens implicitly inside `docker run`. To isolate that
+transient surface from the lint invocation (so retries cannot mask a
+real lint failure), add an explicit `docker pull` guarded by
+`docker image inspect` (mirroring the build-once pattern in
+yamllint / ansible-lint / action-validator) and wrap the pull -
+not the lint `docker run` - in the primitive.
+
 **Files**
 
-- `.github/actions/actionlint/actionlint.sh` (modified) - wrap `docker build` in `retry_command "actionlint docker build" -- ...`.
-- `.github/actions/actionlint/actionlint.bats` (modified or new) - mirror cases.
+- `.github/actions/actionlint/actionlint.sh` (modified) - source `retry.sh` via the locked env-var-primary / relative-fallback pattern; on first use (`docker image inspect` miss) `docker pull` the upstream image wrapped in `retry_command "actionlint docker pull" -- docker pull "${image}"`.
+- `.github/actions/actionlint/actionlint.bats` (modified or new) - mirror cases against the pull instead of the build.
 
-**Behaviour, Tests** - mirror step 6.
+**Behaviour**
+
+- Default classifiers active: `classify_docker_registry:classify_network:classify_http_5xx`.
+- `docker run` (the lint invocation itself) is NOT wrapped. Lint failures are real failures, not transient.
+- All other behaviour (workflow discovery, `::notice::` skip, image tag pinning) unchanged.
+
+**Tests (bats)**
+
+- Stubbed `docker pull` succeeds first try (and `docker image inspect` initially misses) → action exits 0; primitive never retries.
+- Stubbed `docker pull` emits a `dial tcp ... i/o timeout` on first call and succeeds on second → action exits 0; primitive's diagnostic confirms one retry.
+- Stubbed `docker pull` emits `Permission denied` → action exits non-zero immediately (classifier rejects).
+- `docker image inspect` hit → no pull happens, no retry path exercised.
 
 **README update**
 
-- `.github/actions/actionlint/README.md` - mirror the one-line retry note added in step 6.
+- `.github/actions/actionlint/README.md` - mirror the one-line retry note added in step 6, but worded around the registry pull (not a build, since actionlint has none).
 
 ```mermaid
-flowchart LR
-    A[actionlint.sh] --> R[retry_command]
-    R --> B[docker build]
-    B --> Z[docker run actionlint]
+flowchart TD
+    A[actionlint.sh] --> I{image cached?}
+    I -- yes --> Z[docker run actionlint]
+    I -- no --> R{retry_command}
+    R -- attempt 1 --> P[docker pull]
+    P -- transient err --> R
+    R -- attempt 2 --> P
+    P -- success --> Z
 ```
 
 ---
