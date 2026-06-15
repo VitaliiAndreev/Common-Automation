@@ -25,9 +25,9 @@ setup() {
           RETRY_BACKOFF_INITIAL_SECONDS RETRY_BACKOFF_MAX_SECONDS \
           RETRY_BACKOFF_MULTIPLIER RETRY_BACKOFF_JITTER_RATIO \
           RETRY_BACKOFF_JITTER_SEED
-    # GHCOMMON_REPO_ROOT mirrors what action.yml exports from
+    # COMMON_AUTOMATION_REPO_ROOT mirrors what action.yml exports from
     # `${{ github.action_path }}/../../..` at runtime.
-    export GHCOMMON_REPO_ROOT="${REPO_ROOT}"
+    export COMMON_AUTOMATION_REPO_ROOT="${REPO_ROOT}"
 
     # Fast, deterministic backoff so the suite never sleeps for real.
     # The composite's defaults (2 s + 30% jitter) are correct for prod
@@ -152,13 +152,13 @@ attempt_count() {
 }
 
 @test "composite: env-var-primary sourcing path is the one used" {
-    # GHCOMMON_REPO_ROOT is the authoritative path per problem.md;
+    # COMMON_AUTOMATION_REPO_ROOT is the authoritative path per problem.md;
     # pointing it at a tree without retry.sh must fail-fast with a
     # source error, proving the env-var-primary branch is the one
     # consulted (and not silently falling back to relative).
     bogus="${TEST_TMP}/bogus_root"
     mkdir -p "${bogus}"
-    GHCOMMON_REPO_ROOT="${bogus}" \
+    COMMON_AUTOMATION_REPO_ROOT="${bogus}" \
         RETRY_COMMAND="true" \
         RETRY_MAX_ATTEMPTS=1 \
         RETRY_CLASSIFIERS="" \
@@ -167,11 +167,11 @@ attempt_count() {
     [[ "${output}" == *"retry.sh"* ]]
 }
 
-@test "composite: relative-path fallback resolves when GHCOMMON_REPO_ROOT is unset" {
+@test "composite: relative-path fallback resolves when COMMON_AUTOMATION_REPO_ROOT is unset" {
     # The other half of the sourcing contract: with no env var, the
     # entry script must still find retry.sh via SCRIPT_DIR/../../.. -
     # this is the path local invocations and ad-hoc runs take.
-    unset GHCOMMON_REPO_ROOT
+    unset COMMON_AUTOMATION_REPO_ROOT
     stub="$(make_stub 'exit 0')"
     export RETRY_COMMAND="'${stub}'"
     export RETRY_MAX_ATTEMPTS=1

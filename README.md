@@ -1,4 +1,4 @@
-# GitHub-Common
+# Common-Automation
 
 Shared, tech-agnostic GitHub Actions composite actions and reusable workflows.
 
@@ -179,7 +179,7 @@ The defaults match the recommended dockerised-action set above. See
 for the input contract and worked example. One-line usage:
 
 ```yaml
-- uses: VitaliiAndreev/GitHub-Common/.github/actions/retry@v1
+- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
   with:
     command: docker build -t example:ci .
 ```
@@ -233,7 +233,7 @@ to catch failures locally. Windows users can double-click
 Reference any action directly from another repo's workflow:
 
 ```yaml
-- uses: VitaliiAndreev/GitHub-Common/.github/actions/assert-secret@v1
+- uses: VitaliiAndreev/Common-Automation/.github/actions/assert-secret@v1
   with:
     value: ${{ secrets.PSGALLERY_API_KEY }}
     name: PSGALLERY_API_KEY
@@ -247,7 +247,7 @@ bash, call the `ci-bash.yml` reusable workflow:
 ```yaml
 jobs:
   bash:
-    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@v1
+    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-bash.yml@v1
 ```
 
 No inputs needed by default - the workflow scans the caller's
@@ -266,7 +266,7 @@ reusable workflow:
 ```yaml
 jobs:
   yaml:
-    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@v1
+    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@v1
 ```
 
 No inputs - all four underlying composite actions self-resolve
@@ -288,7 +288,7 @@ iteration, or to a SHA for maximum reproducibility.
 ## Layout
 
 ```
-GitHub-Common/
+Common-Automation/
 ├── .github/
 │   ├── actions/
 │   │   ├── assert-secret/

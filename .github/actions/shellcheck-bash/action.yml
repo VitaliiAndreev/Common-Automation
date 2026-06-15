@@ -6,7 +6,7 @@ description: >
   paths are treated as a no-op so the same action can be safely used
   in repos that may or may not have a given directory.
 
-  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  Used by Common-Automation's own ci-bash.yml; also intended as a public
   building block for consumers that want the same strict bar applied
   to their own bash without re-deriving the shellcheck flag set.
 

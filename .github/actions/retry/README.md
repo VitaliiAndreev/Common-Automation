@@ -38,7 +38,7 @@ TCP / TLS / EOF / 5xx patterns.
 ## Usage
 
 ```yaml
-- uses: VitaliiAndreev/GitHub-Common/.github/actions/retry@v1
+- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
   with:
     command: docker build -t example:ci .
 ```
@@ -46,7 +46,7 @@ TCP / TLS / EOF / 5xx patterns.
 Override the inputs when the defaults are wrong for the call site:
 
 ```yaml
-- uses: VitaliiAndreev/GitHub-Common/.github/actions/retry@v1
+- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
   with:
     command: curl -sSfL https://example.test/api
     max_attempts: "3"
@@ -81,7 +81,7 @@ locked env-var-primary / relative-path-fallback contract from
 [problem.md](../../../docs/dev/implementation/22-bash-retry-primitive/problem.md):
 
 - In a workflow, `action.yml` exports
-  `GHCOMMON_REPO_ROOT=${{ github.action_path }}/../../..` so the
+  `COMMON_AUTOMATION_REPO_ROOT=${{ github.action_path }}/../../..` so the
   resolved path is authoritative even if the action directory ever
   moves.
 - Outside Actions (local pre-push runner, ad-hoc `bash` invocation),

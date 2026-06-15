@@ -20,10 +20,10 @@ profile: production
 # ...). Excluding `.github/` wholesale also covers CODEOWNERS,
 # dependabot.yml, and other GitHub-only config files.
 #
-# `.github-common/` is the staging dir created by ci-yaml.yml's
+# `.common-automation/` is the staging dir created by ci-yaml.yml's
 # conditional sparse checkout (this action only runs in that
-# workflow's job). Holds a copy of GitHub-Common's action tree and
+# workflow's job). Holds a copy of Common-Automation's action tree and
 # is not the consumer's concern; skip.
 exclude_paths:
   - .github/
-  - .github-common/
+  - .common-automation/

@@ -17,7 +17,7 @@
 # pinned). To keep the same docker-only ergonomics actionlint has, this
 # action ships its own Dockerfile that pulls the pinned linux binary
 # from GitHub releases at build time. The image is tagged
-# github-common/action-validator:<version> and only rebuilt when the
+# common-automation/action-validator:<version> and only rebuilt when the
 # pinned tag changes - subsequent runs reuse the cached image.
 #
 # Skips silently with a `::notice::` when neither workflows nor
@@ -32,12 +32,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve the retry primitive via the locked env-var-primary /
 # relative-path-fallback contract from problem.md: in a workflow the
-# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# composite's action.yml exports COMMON_AUTOMATION_REPO_ROOT so the path is
 # authoritative even if the action directory ever moves; outside
 # Actions (the pre-push runner, ad-hoc invocations) the env var is
 # unset and SCRIPT_DIR/../../.. resolves to the same file as long as
 # the repo layout is intact.
-repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+repo_root="${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
 # shellcheck source=../../lib/retry.sh
 source "${repo_root}/.github/lib/retry.sh"
 
@@ -75,7 +75,7 @@ if (( ${#files[@]} == 0 )); then
 fi
 
 version="$("${script_dir}/../../lib/get-action-validator-version.sh")"
-image="github-common/action-validator:${version}"
+image="common-automation/action-validator:${version}"
 
 # Build the pinned image on first use; the version-suffixed tag means
 # a bump invalidates the cache automatically and a no-op run is just a

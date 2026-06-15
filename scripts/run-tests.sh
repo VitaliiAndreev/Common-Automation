@@ -27,20 +27,20 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# GitHub-Common's own root - where the reusable check helpers live.
+# Common-Automation's own root - where the reusable check helpers live.
 # Helper paths below anchor to this, never to the target repo.
-ghcommon_root="$(cd "${script_dir}/.." && pwd)"
+common_automation_root="$(cd "${script_dir}/.." && pwd)"
 
-# The repo actually being linted/tested. Defaults to GitHub-Common
+# The repo actually being linted/tested. Defaults to Common-Automation
 # itself; a consuming repo's thin run-tests.sh exports
-# GHCOMMON_TARGET_REPO so these same helpers check THAT repo instead -
+# COMMON_AUTOMATION_TARGET_REPO so these same helpers check THAT repo instead -
 # single source of truth for the check logic, no per-repo duplication.
-repo_root="${GHCOMMON_TARGET_REPO:-${ghcommon_root}}"
+repo_root="${COMMON_AUTOMATION_TARGET_REPO:-${common_automation_root}}"
 
 # Resolve the canonical bats version through the same accessor the
 # composite action uses, so local and CI cannot drift. The getter
 # reads .github/lib/versions.env - the single source of truth.
-BATS_IMAGE="bats/bats:$("${ghcommon_root}/.github/lib/get-bats-version.sh")"
+BATS_IMAGE="bats/bats:$("${common_automation_root}/.github/lib/get-bats-version.sh")"
 SHELLCHECK_IMAGE='koalaman/shellcheck:v0.10.0'
 
 # shellcheck source=./_hold-window.sh
@@ -55,7 +55,7 @@ trap hold_window_open EXIT
 # expected relative to repo_root - both branches cd there first so the
 # native run and the docker mount (-w /work) resolve them identically.
 run_shellcheck_flagged() {
-    local helper="${ghcommon_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
+    local helper="${common_automation_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
     # shellcheck source=../.github/actions/shellcheck-bash/shellcheck-bash.sh
     source "${helper}"
 
@@ -86,7 +86,7 @@ run_shellcheck_flagged() {
 run_shellcheck_on() {
     local rel_path="$1"
     local label="$2"
-    local helper="${ghcommon_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
+    local helper="${common_automation_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
 
     echo "=== shellcheck ${label} (${rel_path}) ==="
 
@@ -116,7 +116,7 @@ run_shellcheck_on() {
 # FLAGS array because the Alpine shellcheck image cannot run bash.
 run_shellcheck_hooks() {
     echo "=== shellcheck hooks (.githooks) ==="
-    local helper="${ghcommon_root}/.github/actions/shellcheck-hooks/shellcheck-hooks.sh"
+    local helper="${common_automation_root}/.github/actions/shellcheck-hooks/shellcheck-hooks.sh"
 
     if command -v shellcheck >/dev/null 2>&1; then
         (cd "${repo_root}" && bash "${helper}")
@@ -139,7 +139,7 @@ run_check_sh_executable() {
     # git does. Delegates to the same helper the composite action runs
     # so the local and CI gates cannot drift. Run from repo_root so the
     # git index lookup covers the whole repo.
-    local helper="${ghcommon_root}/.github/actions/check-sh-executable/check-sh-executable.sh"
+    local helper="${common_automation_root}/.github/actions/check-sh-executable/check-sh-executable.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }
@@ -151,7 +151,7 @@ run_check_sh_executable() {
 # create a second source of truth that could drift from the helper.
 run_actionlint() {
     echo "=== actionlint ==="
-    local helper="${ghcommon_root}/.github/actions/actionlint/actionlint.sh"
+    local helper="${common_automation_root}/.github/actions/actionlint/actionlint.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }
@@ -161,7 +161,7 @@ run_actionlint() {
 # action-validator constants leak into this runner.
 run_action_validator() {
     echo "=== action-validator ==="
-    local helper="${ghcommon_root}/.github/actions/action-validator/action-validator.sh"
+    local helper="${common_automation_root}/.github/actions/action-validator/action-validator.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }
@@ -171,18 +171,18 @@ run_action_validator() {
 # image, so no yamllint constants leak into this runner.
 run_yamllint() {
     echo "=== yamllint ==="
-    local helper="${ghcommon_root}/.github/actions/yamllint/yamllint.sh"
+    local helper="${common_automation_root}/.github/actions/yamllint/yamllint.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }
 
 # Same delegation pattern: the helper owns the auto-skip detection
 # (no Ansible content -> ::notice:: and exit 0), config resolution,
-# and pinned image build. GitHub-Common itself has no Ansible content,
+# and pinned image build. Common-Automation itself has no Ansible content,
 # so this reports a notice rather than a failure on the local run.
 run_ansible_lint() {
     echo "=== ansible-lint ==="
-    local helper="${ghcommon_root}/.github/actions/ansible-lint/ansible-lint.sh"
+    local helper="${common_automation_root}/.github/actions/ansible-lint/ansible-lint.sh"
     (cd "${repo_root}" && bash "${helper}")
     return $?
 }

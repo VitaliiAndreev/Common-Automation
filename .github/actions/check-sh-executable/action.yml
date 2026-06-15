@@ -6,7 +6,7 @@ description: >
   when run directly on Linux runners, and emits a one-line,
   copy-pasteable fix.
 
-  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  Used by Common-Automation's own ci-bash.yml; also intended as a public
   building block for consumers that want the same gate without
   re-deriving the git ls-files incantation.
 

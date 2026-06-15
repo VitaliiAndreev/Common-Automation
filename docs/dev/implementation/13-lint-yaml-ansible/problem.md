@@ -41,7 +41,7 @@ None of that surface is reachable by `actionlint` or
 `action-validator`, both of which are scoped to GitHub Actions YAML.
 
 Concrete bug classes a malformed Ansible YAML or generic YAML file
-would produce today, none of which any current GitHub-Common lint
+would produce today, none of which any current Common-Automation lint
 catches:
 
 - A typo in `requirements.yml` (`anisble.posix` instead of
@@ -58,7 +58,7 @@ catches:
   drift smells that are easy to author and slow to debug at runtime.
 
 Because the Ansible repo is the first non-workflow-YAML consumer in
-the GitHub-Common ecosystem and other repos are likely to follow
+the Common-Automation ecosystem and other repos are likely to follow
 (`Infrastructure-GitHubRunners` has YAML config; future toolchain
 repos will too), the right place to add the coverage is here, not in
 the consumer.
@@ -110,7 +110,7 @@ Resulting shape - one line for every consumer:
 ```yaml
 jobs:
   yaml:
-    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@master
+    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@master
 ```
 
 `ci-yaml.yml` ends with four jobs:

@@ -7,7 +7,7 @@ description: >
   treated as a no-op so the same action is safe to use in repos that
   do not yet have any workflows.
 
-  Used by GitHub-Common's own ci-yaml.yml; also intended as a public
+  Used by Common-Automation's own ci-yaml.yml; also intended as a public
   building block for consumers that want the same actionlint version
   applied to their own workflows without re-deriving the docker
   invocation.

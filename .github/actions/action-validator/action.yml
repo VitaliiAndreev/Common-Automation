@@ -15,7 +15,7 @@ description: >
   otherwise only surfaces when a downstream consumer tries to call
   the action.
 
-  Used by GitHub-Common's own ci-yaml.yml; also intended as a public
+  Used by Common-Automation's own ci-yaml.yml; also intended as a public
   building block for consumers that want the same action-validator
   version applied to their own workflows and composite actions
   without re-deriving the docker invocation.
