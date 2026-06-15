@@ -32,6 +32,16 @@ RUN set -eux && \
         -o /usr/local/bin/action-validator \
         "https://github.com/mpalmer/action-validator/releases/download/v${VERSION}/action-validator_linux_${TARGETARCH}" && \
     chmod +x /usr/local/bin/action-validator && \
-    apk del .fetch-deps
+    apk del .fetch-deps && \
+    git config --system --add safe.directory '*'
 
+# Why safe.directory: on a GitHub runner the mounted /repo is owned by
+# the checkout user while this container runs as root, so git's
+# dubious-ownership guard aborts `git ls-files` before action-validator
+# can resolve any `paths:` glob. safe.directory is deliberately ignored
+# from `-c` / GIT_CONFIG_* env injection, so it must be baked into a
+# system/global config - hence `git config --system` here rather than a
+# flag on the helper's `docker run`. `*` (not a fixed path) keeps the
+# image decoupled from the helper's mount point: this is an ephemeral,
+# single-purpose lint container, so trusting every path is safe.
 ENTRYPOINT ["/usr/local/bin/action-validator"]
