@@ -17,15 +17,21 @@ FROM alpine:3.20
 ARG VERSION
 ARG TARGETARCH=amd64
 
-# curl + ca-certificates are only needed for the download; remove them
-# after to keep the final image close to base alpine size. A failed
-# download fails the build loudly thanks to `set -e` + `curl -fsSL`.
+# git stays in the final image: action-validator shells out to
+# `git ls-files` at runtime to validate `paths:` / `paths-ignore:`
+# globs against the repo's tracked files, so a git-less image fails
+# any workflow that uses path filters. curl + ca-certificates are only
+# needed to fetch the binary, so they go in a virtual package removed
+# after the download to keep the final image close to base alpine
+# size. A failed download fails the build loudly via `set -e` +
+# `curl -fsSL`.
 RUN set -eux && \
-    apk add --no-cache curl ca-certificates && \
+    apk add --no-cache git && \
+    apk add --no-cache --virtual .fetch-deps curl ca-certificates && \
     curl -fsSL \
         -o /usr/local/bin/action-validator \
         "https://github.com/mpalmer/action-validator/releases/download/v${VERSION}/action-validator_linux_${TARGETARCH}" && \
     chmod +x /usr/local/bin/action-validator && \
-    apk del curl
+    apk del .fetch-deps
 
 ENTRYPOINT ["/usr/local/bin/action-validator"]
