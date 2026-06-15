@@ -24,7 +24,7 @@
 # contract. To keep the same docker-only ergonomics actionlint has,
 # this action ships its own Dockerfile that pip-installs the pinned
 # yamllint==<version> from PyPI at build time. The image is tagged
-# github-common/yamllint:<version> and only rebuilt when the pinned
+# common-automation/yamllint:<version> and only rebuilt when the pinned
 # tag changes - subsequent runs reuse the cached image (same shape
 # action-validator uses for the same reason).
 #
@@ -46,12 +46,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve the retry primitive via the locked env-var-primary /
 # relative-path-fallback contract from problem.md: in a workflow the
-# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# composite's action.yml exports COMMON_AUTOMATION_REPO_ROOT so the path is
 # authoritative even if the action directory ever moves; outside
 # Actions (the pre-push runner, ad-hoc invocations) the env var is
 # unset and SCRIPT_DIR/../../.. resolves to the same file as long as
 # the repo layout is intact.
-repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+repo_root="${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
 # shellcheck source=../../lib/retry.sh
 source "${repo_root}/.github/lib/retry.sh"
 
@@ -69,9 +69,9 @@ exclude_dirs=(
     .github/actions
     # Staging dir created by ci-yaml.yml's conditional sparse
     # checkout (this composite only runs in that workflow's job).
-    # Holds a copy of GitHub-Common's action tree and is not the
+    # Holds a copy of Common-Automation's action tree and is not the
     # consumer's concern; skip.
-    .github-common
+    .common-automation
 )
 
 # Build a `find` prune expression from the exclude list so file
@@ -111,7 +111,7 @@ for candidate in .yamllint .yamllint.yml .yamllint.yaml; do
 done
 
 version="$("${script_dir}/../../lib/get-yamllint-version.sh")"
-image="github-common/yamllint:${version}"
+image="common-automation/yamllint:${version}"
 
 # Build the pinned image on first use; the version-suffixed tag
 # means a bump invalidates the cache automatically and a no-op run

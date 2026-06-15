@@ -73,7 +73,7 @@ Create `.github/actions/yamllint/` with `action.yml` and
   `scan-path` input if a real consumer needs one.
 - Reads `.yamllint` / `.yamllint.yml` / `.yamllint.yaml` config from
   the consumer repo root if present; otherwise applies the bundled
-  `default` ruleset relaxed only where the existing GitHub-Common
+  `default` ruleset relaxed only where the existing Common-Automation
   YAML legitimately violates it (decided in-line during this step
   after running against this repo). Any relaxation lives in a
   committed `.github/actions/yamllint/yamllint.config.yml` so the
@@ -85,7 +85,7 @@ Create `.github/actions/yamllint/` with `action.yml` and
   `.yaml` files outside the excluded directories.
 
 **Reason:** packaging as a composite action gives downstream repos
-the same `uses: VitaliiAndreev/GitHub-Common/.github/actions/yamllint@master`
+the same `uses: VitaliiAndreev/Common-Automation/.github/actions/yamllint@master`
 ergonomics as the existing composite actions, with no
 yamllint-install boilerplate at the call site.
 
@@ -254,7 +254,7 @@ Extend [scripts/run-tests.sh](../../../scripts/run-tests.sh) with a
 `run_ansible_lint` function added to the same `failures` block as
 `run_yamllint`. Same delegation pattern: call the helper rather
 than re-deriving the invocation. The helper's own auto-skip
-detection means GitHub-Common (which has no Ansible content) sees
+detection means Common-Automation (which has no Ansible content) sees
 the function exit 0 with a notice line, not a failure.
 
 **Reason:** keeps the local runner symmetric with CI - every CI
@@ -314,7 +314,7 @@ repo's feature 02, against this feature's published `master`.
 
 ```mermaid
 flowchart TD
-    subgraph repo[GitHub-Common]
+    subgraph repo[Common-Automation]
         wf[ci-yaml.yml<br/>EXTENDED]
         a1[.github/actions/actionlint]
         a2[.github/actions/action-validator]

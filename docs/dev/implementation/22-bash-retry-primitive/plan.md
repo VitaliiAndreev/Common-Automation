@@ -104,7 +104,7 @@ The cost is a single env-var indirection.
   strategy-registration pattern.
 - `.github/lib/retry.sh` (modified) - replace fixed sleep with a
   registry call. On load, source every `*.sh` under
-  `${GHCOMMON_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-strategies/`
+  `${COMMON_AUTOMATION_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-strategies/`
   so shipped strategies are available without callers having to
   source them individually. The primitive resolves the strategy via
   `RETRY_BACKOFF_STRATEGY` (default `exponential_jitter_backoff`)
@@ -254,7 +254,7 @@ primitive. The four lint actions migrate against these in steps 6-9.
   `classify_http_5xx`.
 - `.github/lib/retry.sh` (modified) - extend the on-load sourcing
   pattern from step 2 to also source every `*.sh` under
-  `${GHCOMMON_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-classifiers/`,
+  `${COMMON_AUTOMATION_LIB_DIR:-$(dirname "${BASH_SOURCE[0]}")}/retry-classifiers/`,
   so shipped classifiers are available without callers having to
   source them individually.
 - `.github/lib/retry.bats` (modified) - per-classifier cases plus a
@@ -329,7 +329,7 @@ exposing only the minimal input surface locked in problem.md.
   - `command` (required) - bash command string passed verbatim to `retry_command`.
   - `max_attempts` (optional, default `5`) - exported as `RETRY_MAX_ATTEMPTS`.
   - `transient_patterns` (optional, default `classify_docker_registry:classify_network:classify_http_5xx`) - exported as `RETRY_CLASSIFIERS`.
-- The bash entry resolves the primitive per the locked sourcing pattern: env-var primary (`GHCOMMON_REPO_ROOT="${{ github.action_path }}/../../.."`), relative-path fallback for direct invocation (`${SCRIPT_DIR}/../../..`).
+- The bash entry resolves the primitive per the locked sourcing pattern: env-var primary (`COMMON_AUTOMATION_REPO_ROOT="${{ github.action_path }}/../../.."`), relative-path fallback for direct invocation (`${SCRIPT_DIR}/../../..`).
 - Invokes `retry_command "$command" -- bash -lc "$command"`. The `bash -lc` lets the input be a normal one-line shell expression with pipes and redirects.
 
 **Tests (bats)**

@@ -4,7 +4,7 @@
 # most important contract is the skip-silently branch when nothing is
 # discoverable (covered without docker so it stays green on any
 # workstation), plus the pass/fail outcomes on real fixtures (covered
-# through the locally-built github-common/action-validator image so the
+# through the locally-built common-automation/action-validator image so the
 # bar matches what consumers actually experience). Docker-dependent
 # tests `skip` cleanly when the engine is unavailable so the suite
 # remains usable without it.

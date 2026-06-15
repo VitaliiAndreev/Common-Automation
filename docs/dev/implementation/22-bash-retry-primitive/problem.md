@@ -12,7 +12,7 @@
 
 ## What is changing and why
 
-GitHub-Common ships four dockerised lint actions (`ansible-lint`,
+Common-Automation ships four dockerised lint actions (`ansible-lint`,
 `yamllint`, `actionlint`, `action-validator`) that build their pinned
 images on first run from a Docker Hub base image (`python:3.12-slim`
 and friends). When `registry-1.docker.io` is unreachable for a few
@@ -25,7 +25,7 @@ fetch. Re-running the job succeeded, but every consumer repo eats
 the same false-failure tax.
 
 This feature adds a **reusable bash retry primitive** to
-GitHub-Common — a sourced helper plus a composite-action wrapper —
+Common-Automation — a sourced helper plus a composite-action wrapper —
 that wraps transient-prone commands with exponential-backoff retries.
 The four dockerised lint actions become its first in-repo consumers;
 their `docker build` calls move inside the helper. Future bash sites
@@ -34,7 +34,7 @@ from flaky mirrors) adopt the same helper instead of hand-rolling an
 `until ... sleep ... done` loop each time.
 
 The primitive is the bash-side equivalent of
-[`PowerShell.Common`'s `Invoke-WithRetry`](../../../../PowerShell-Common/PowerShell.Common/Public/Retry/Invoke-WithRetry.ps1)
+[`Common.PowerShell`'s `Invoke-WithRetry`](../../../../Common-PowerShell/Common.PowerShell/Public/Retry/Invoke-WithRetry.ps1)
 and intentionally mirrors its shape (strategy + backoff + budget)
 so a reader who knows one knows the other.
 
@@ -56,7 +56,7 @@ Debian-package retry tools are both off the table.
 | 4 | Inline `until ... sleep ...` loop per call site | n/a | Trivial cases work. | No jitter, no transient-vs-permanent filter, no shared budget, no shared tests — copy-paste drift across sites. | ✗ Acceptable stop-gap; not a primitive. |
 | 5 | [GNU `parallel --retries`](https://www.gnu.org/software/parallel/) | GPLv3 | Built-in retry on flaky commands. | GPL runtime dep; conceptually heavy (a parallel-execution engine for a sequential retry use case). | ✗ Wrong tool. |
 | 6 | `docker buildx` internal retry | n/a | buildx has internal retry for some pull ops but no public CLI surface to control retry-on-network. | Doesn't address the broader bash retry need. | ✗ Not general. |
-| 7 | **Reference shape** — `PowerShell.Common`'s `Invoke-WithRetry` + `New-*RetryStrategy` factories | in-house, active | Wrong language but right shape: strategy (transient classifier) + backoff (exponential w/ jitter) + budget. `Invoke-ModuleInstall` is the working existence proof. | n/a — model, not a runtime dep. | ✓ Adopt the shape. |
+| 7 | **Reference shape** — `Common.PowerShell`'s `Invoke-WithRetry` + `New-*RetryStrategy` factories | in-house, active | Wrong language but right shape: strategy (transient classifier) + backoff (exponential w/ jitter) + budget. `Invoke-ModuleInstall` is the working existence proof. | n/a — model, not a runtime dep. | ✓ Adopt the shape. |
 
 ### Chosen direction
 
@@ -125,7 +125,7 @@ cover the retry path.
   `.github/lib/retry-strategies/exponential-jitter.sh`. The shipped
   default classifiers each live at
   `.github/lib/retry-classifiers/<name>.sh` (one file per classifier).
-  `retry.sh` sources these on load via a `GHCOMMON_LIB_DIR`
+  `retry.sh` sources these on load via a `COMMON_AUTOMATION_LIB_DIR`
   env-var-primary / `$(dirname "${BASH_SOURCE[0]}")` fallback - same
   shape as the action-level sourcing pattern, so callers can override
   the lib directory for tests without forking the primitive.
@@ -154,16 +154,16 @@ cover the retry path.
   to misuse the retry. Workflows that need more are a) rare and
   b) better off sourcing the primitive directly in a `run:` step.
 - **Same major-version tag as the rest of the repo.** The primitive
-  ships under the existing GitHub-Common version tag (see
+  ships under the existing Common-Automation version tag (see
   [feature 04 versioning](../04-lint-yaml-workflows-and-actions/));
   no separate primitive version line. Bumping the tag bumps every
   caller in lockstep, which matches the contract consumers already
   rely on for the lint actions.
 - **Primitive sourcing inside dockerised actions: env-var primary,
   relative-path fallback.** Each composite `action.yml` exports
-  `GHCOMMON_REPO_ROOT="${{ github.action_path }}/../../.."` for its
+  `COMMON_AUTOMATION_REPO_ROOT="${{ github.action_path }}/../../.."` for its
   bash entry script. The entry resolves the primitive as
-  `source "${GHCOMMON_REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." &&
+  `source "${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${SCRIPT_DIR}/../../.." &&
   pwd)}/.github/lib/retry.sh"`. When invoked as a composite action,
   `github.action_path` is authoritative and survives a future
   action-directory move; when invoked outside Actions (local
@@ -210,5 +210,5 @@ In-scope deliverables for feature 22:
   retries one command, not a workflow step or job. Job-level reruns
   remain GitHub's responsibility.
 - **Replacing existing inline retry loops outside the dockerised
-  lint actions.** Anywhere else in GitHub-Common that already loops
+  lint actions.** Anywhere else in Common-Automation that already loops
   for retry (none today, but if any appear) is a separate migration.

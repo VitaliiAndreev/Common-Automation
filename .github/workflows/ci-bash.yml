@@ -12,9 +12,9 @@
 #
 #   jobs:
 #     bash:
-#       uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-bash.yml@master
+#       uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-bash.yml@master
 #
-# Every `uses:` for a GitHub-Common composite is a local `./` path,
+# Every `uses:` for a Common-Automation composite is a local `./` path,
 # never a fully-qualified `@master` ref. The reason: GitHub Actions
 # eagerly resolves every registry-form `uses:` at job-prep time
 # before step-level `if:` guards are evaluated, so a PR that
@@ -24,8 +24,8 @@
 # eager-resolution failure mode entirely.
 #
 # To make `./` work for external consumers (whose workspace does not
-# contain GitHub-Common's composites), each job does a conditional
-# sparse checkout of GitHub-Common at master into `.github-common/` and
+# contain Common-Automation's composites), each job does a conditional
+# sparse checkout of Common-Automation at master into `.common-automation/` and
 # the external branch of each if-guarded pair points there. The self
 # branch points at the consumer's own workspace, so PRs to this repo
 # exercise the PR's own composite code end-to-end.
@@ -62,24 +62,24 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/GitHub-Common
+          repository: VitaliiAndreev/Common-Automation
           ref: master
-          path: .github-common
+          path: .common-automation
           sparse-checkout: |
             .github/actions
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository == 'VitaliiAndreev/Common-Automation'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: ./.github-common/.github/actions/shellcheck-bash
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
@@ -91,24 +91,24 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/GitHub-Common
+          repository: VitaliiAndreev/Common-Automation
           ref: master
-          path: .github-common
+          path: .common-automation
           sparse-checkout: |
             .github/actions
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository == 'VitaliiAndreev/Common-Automation'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: ./.github-common/.github/actions/shellcheck-bash
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
@@ -121,22 +121,22 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/GitHub-Common
+          repository: VitaliiAndreev/Common-Automation
           ref: master
-          path: .github-common
+          path: .common-automation
           sparse-checkout: |
             .github/actions
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository == 'VitaliiAndreev/Common-Automation'
         uses: ./.github/actions/shellcheck-hooks
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: ./.github-common/.github/actions/shellcheck-hooks
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-hooks
 
   # Files authored on Windows land in git as mode 0644 by default. On
   # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
@@ -148,40 +148,40 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/GitHub-Common
+          repository: VitaliiAndreev/Common-Automation
           ref: master
-          path: .github-common
+          path: .common-automation
           sparse-checkout: |
             .github/actions
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository == 'VitaliiAndreev/Common-Automation'
         uses: ./.github/actions/check-sh-executable
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: ./.github-common/.github/actions/check-sh-executable
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+        uses: ./.common-automation/.github/actions/check-sh-executable
 
   bats:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/GitHub-Common
+          repository: VitaliiAndreev/Common-Automation
           ref: master
-          path: .github-common
+          path: .common-automation
           sparse-checkout: |
             .github/actions
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/GitHub-Common'
+      - if: github.repository == 'VitaliiAndreev/Common-Automation'
         uses: ./.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
@@ -189,7 +189,7 @@ jobs:
           # the canonical version from .github/lib/versions.env.
           bats-version: ${{ inputs.bats-version }}
 
-      - if: github.repository != 'VitaliiAndreev/GitHub-Common'
-        uses: ./.github-common/.github/actions/test-bats
+      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+        uses: ./.common-automation/.github/actions/test-bats
         with:
           bats-version: ${{ inputs.bats-version }}

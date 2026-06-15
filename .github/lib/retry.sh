@@ -34,16 +34,16 @@
 #                                   step-1/2 behaviour persists when no
 #                                   classifier is opted into.
 #
-# GHCOMMON_LIB_DIR (test-only) overrides the directory used to source
+# COMMON_AUTOMATION_LIB_DIR (test-only) overrides the directory used to source
 # shipped strategies / classifiers; defaults to the dir holding this
 # file. See `retry-strategies/exponential-jitter.sh` for the default
 # strategy's env vars.
 
 # Locate the lib directory so shipped strategies and classifiers can
-# be sourced relative to this file. GHCOMMON_LIB_DIR overrides the
+# be sourced relative to this file. COMMON_AUTOMATION_LIB_DIR overrides the
 # auto-detected path - tests use that to point at fixture directories
 # without forking the primitive.
-_RETRY_LIB_DIR="${GHCOMMON_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+_RETRY_LIB_DIR="${COMMON_AUTOMATION_LIB_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 # Auto-source every shipped strategy on load so callers get the
 # defaults without having to source each file individually. Consumers

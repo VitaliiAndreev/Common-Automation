@@ -31,15 +31,15 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Keep the window open on an Explorer double-click (no-op under the
-# .bat launcher, which sets GHCOMMON_NO_PAUSE=1, and in CI/pipes).
+# .bat launcher, which sets COMMON_AUTOMATION_NO_PAUSE=1, and in CI/pipes).
 # shellcheck source=./_hold-window.sh
 source "${script_dir}/_hold-window.sh"
 trap hold_window_open EXIT
 
 # The remote and branch the release tags track. Overridable for forks
 # or repos whose default branch is not master.
-remote="${GHCOMMON_RELEASE_REMOTE:-origin}"
-branch="${GHCOMMON_RELEASE_BRANCH:-master}"
+remote="${COMMON_AUTOMATION_RELEASE_REMOTE:-origin}"
+branch="${COMMON_AUTOMATION_RELEASE_BRANCH:-master}"
 
 # Version comes from the first argument; if omitted, prompt for it so a
 # double-click launch is still usable rather than just erroring out.

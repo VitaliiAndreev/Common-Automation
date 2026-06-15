@@ -18,7 +18,7 @@ description: >
   silently with a `::notice::`, so the action is safe to wire in
   before any plain YAML exists.
 
-  Used by GitHub-Common's own ci-yaml.yml; also intended as a public
+  Used by Common-Automation's own ci-yaml.yml; also intended as a public
   building block for consumers that want the same yamllint version
   applied to their own YAML without re-deriving the docker invocation.
 

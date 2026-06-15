@@ -37,7 +37,7 @@ not referenced by any local workflow go unchecked entirely. See
 
 A concrete recent example: a malformed `run:` line in
 [.github/actions/assert-secret/action.yml](../../../.github/actions/assert-secret/action.yml)
-broke every downstream consumer of `GitHub-Common@master` until it
+broke every downstream consumer of `Common-Automation@master` until it
 was caught manually. A JSON-schema check against the official GitHub
 Actions metadata schema would have flagged it.
 

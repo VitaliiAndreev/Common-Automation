@@ -28,10 +28,10 @@ SCRIPT="${BATS_TEST_DIRNAME}/_hold-window.sh"
     [ -z "${output}" ]
 }
 
-@test "GHCOMMON_NO_PAUSE=1 suppresses the prompt and preserves the code" {
+@test "COMMON_AUTOMATION_NO_PAUSE=1 suppresses the prompt and preserves the code" {
     # The .bat launchers export this so they, not the trap, hold the window;
     # the handler must then be a pure pass-through.
-    GHCOMMON_NO_PAUSE=1 run bash -c 'source "$1"; trap hold_window_open EXIT; exit 5' _ "${SCRIPT}"
+    COMMON_AUTOMATION_NO_PAUSE=1 run bash -c 'source "$1"; trap hold_window_open EXIT; exit 5' _ "${SCRIPT}"
     [ "${status}" -eq 5 ]
     [ -z "${output}" ]
 }

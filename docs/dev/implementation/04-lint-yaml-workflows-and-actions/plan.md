@@ -61,7 +61,7 @@ Create `.github/actions/actionlint/` with `action.yml` and
   no native install path needed in CI.
 
 **Reason:** packaging as a composite action lets downstream repos call
-it as `uses: VitaliiAndreev/GitHub-Common/.github/actions/actionlint@master`
+it as `uses: VitaliiAndreev/Common-Automation/.github/actions/actionlint@master`
 with no Docker boilerplate at the call site, matching how
 `shellcheck-bash` and `test-bats` are exposed.
 
@@ -169,7 +169,7 @@ Create `.github/actions/action-validator/` with `action.yml` and
     the version pinning is the constant either way.
 
 **Reason:** packaging as a composite action gives downstream repos
-the same `uses: VitaliiAndreev/GitHub-Common/.github/actions/action-validator@master`
+the same `uses: VitaliiAndreev/Common-Automation/.github/actions/action-validator@master`
 ergonomics they get from the other composite actions, with no
 schema-validator boilerplate at the call site.
 
@@ -259,7 +259,7 @@ one `uses:` line:
 ```yaml
 jobs:
   yaml:
-    uses: VitaliiAndreev/GitHub-Common/.github/workflows/ci-yaml.yml@master
+    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@master
 ```
 
 **Tests:** validated by the very first CI run of this workflow on
@@ -269,7 +269,7 @@ this expectation in the workflow header comment.
 
 ```mermaid
 flowchart TD
-    subgraph repo[GitHub-Common]
+    subgraph repo[Common-Automation]
         wf2[ci-yaml.yml NEW]
         act_al[.github/actions/actionlint]
         act_av[.github/actions/action-validator]

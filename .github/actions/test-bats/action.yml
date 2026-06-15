@@ -6,7 +6,7 @@ description: >
   across the repo can use the action with no inputs at all. Missing
   path / zero suites exits 0 silently (bats's own behaviour).
 
-  Used by GitHub-Common's own ci-bash.yml; also intended as a public
+  Used by Common-Automation's own ci-bash.yml; also intended as a public
   building block for consumers that want the same bats invocation
   without re-deriving the install step.
 

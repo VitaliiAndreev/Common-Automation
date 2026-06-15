@@ -42,11 +42,11 @@ runs:
       # both the composite's runtime and the bats suite's target -
       # mirroring the convention every other action in this repo uses
       # (ansible-lint, yamllint, actionlint, action-validator).
-      # GHCOMMON_REPO_ROOT is the env-var-primary half of the locked
+      # COMMON_AUTOMATION_REPO_ROOT is the env-var-primary half of the locked
       # sourcing pattern (problem.md): when the action lives at
       # `.github/actions/retry/`, the repo root is three levels up.
       env:
-        GHCOMMON_REPO_ROOT: ${{ github.action_path }}/../../..
+        COMMON_AUTOMATION_REPO_ROOT: ${{ github.action_path }}/../../..
         RETRY_COMMAND: ${{ inputs.command }}
         RETRY_MAX_ATTEMPTS: ${{ inputs.max_attempts }}
         RETRY_CLASSIFIERS: ${{ inputs.transient_patterns }}

@@ -31,12 +31,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve the retry primitive via the locked env-var-primary /
 # relative-path-fallback contract from problem.md: in a workflow the
-# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# composite's action.yml exports COMMON_AUTOMATION_REPO_ROOT so the path is
 # authoritative even if the action directory ever moves; outside
 # Actions (the pre-push runner, ad-hoc invocations) the env var is
 # unset and SCRIPT_DIR/../../.. resolves to the same file as long as
 # the repo layout is intact.
-repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+repo_root="${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
 # shellcheck source=../../lib/retry.sh
 source "${repo_root}/.github/lib/retry.sh"
 

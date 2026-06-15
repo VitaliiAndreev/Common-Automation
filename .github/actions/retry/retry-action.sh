@@ -11,7 +11,7 @@
 #
 # Primitive resolution follows the locked env-var-primary /
 # relative-path-fallback contract from problem.md:
-#   - In a workflow, action.yml sets GHCOMMON_REPO_ROOT from
+#   - In a workflow, action.yml sets COMMON_AUTOMATION_REPO_ROOT from
 #     `${{ github.action_path }}/../../..` so the resolved path is
 #     authoritative even if the action directory ever moves.
 #   - Outside Actions (local pre-push runner, ad-hoc `bash ...`), the
@@ -27,7 +27,7 @@
 set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+repo_root="${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
 
 # Required input. action.yml marks `command` as required, but a direct
 # invocation (tests, local runs) might forget - surface that as a clear

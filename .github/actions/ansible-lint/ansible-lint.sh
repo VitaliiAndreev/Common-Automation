@@ -3,7 +3,7 @@
 # roles, ansible.cfg). Auto-skips with a `::notice::` when none of
 # `ansible.cfg`, `playbooks/`, or `roles/` exists at the repo root -
 # the composite is wired into every consumer's ci-yaml.yml so it must
-# no-op silently on repos with no Ansible content (e.g. GitHub-Common
+# no-op silently on repos with no Ansible content (e.g. Common-Automation
 # itself) rather than fail or print noise.
 #
 # Single source of truth for the ansible-lint invocation - the
@@ -24,7 +24,7 @@
 # satisfy the repo's exact-version pin contract. The bundled
 # Dockerfile next to this script pip-installs the pinned
 # ansible-lint==<version> from PyPI at build time; the image is
-# tagged github-common/ansible-lint:<version> and only rebuilt when
+# tagged common-automation/ansible-lint:<version> and only rebuilt when
 # the pinned tag changes - subsequent runs reuse the cached image
 # (same shape yamllint and action-validator use for the same reason).
 #
@@ -43,12 +43,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Resolve the retry primitive via the locked env-var-primary /
 # relative-path-fallback contract from problem.md: in a workflow the
-# composite's action.yml exports GHCOMMON_REPO_ROOT so the path is
+# composite's action.yml exports COMMON_AUTOMATION_REPO_ROOT so the path is
 # authoritative even if the action directory ever moves; outside
 # Actions (the pre-push runner, ad-hoc invocations) the env var is
 # unset and SCRIPT_DIR/../../.. resolves to the same file as long as
 # the repo layout is intact.
-repo_root="${GHCOMMON_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
+repo_root="${COMMON_AUTOMATION_REPO_ROOT:-$(cd "${script_dir}/../../.." && pwd)}"
 # shellcheck source=../../lib/retry.sh
 source "${repo_root}/.github/lib/retry.sh"
 
@@ -74,7 +74,7 @@ for candidate in .ansible-lint .ansible-lint.yml .ansible-lint.yaml; do
 done
 
 version="$("${script_dir}/../../lib/get-ansible-lint-version.sh")"
-image="github-common/ansible-lint:${version}"
+image="common-automation/ansible-lint:${version}"
 
 # Build the pinned image on first use; the version-suffixed tag means
 # a bump invalidates the cache automatically and a no-op run is just a

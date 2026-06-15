@@ -12,7 +12,7 @@
 #     trap hold_window_open EXIT
 #
 # The trap stays out of the way when:
-#   - GHCOMMON_NO_PAUSE=1 is exported (e.g. by the .bat launchers,
+#   - COMMON_AUTOMATION_NO_PAUSE=1 is exported (e.g. by the .bat launchers,
 #     which hold the cmd window themselves and would otherwise double-
 #     prompt)
 #   - stdout is not a tty (CI, pipe, redirect)
@@ -21,7 +21,7 @@
 
 hold_window_open() {
     local rc=$?
-    if [[ "${GHCOMMON_NO_PAUSE:-}" != "1" && -t 1 ]]; then
+    if [[ "${COMMON_AUTOMATION_NO_PAUSE:-}" != "1" && -t 1 ]]; then
         # shellcheck disable=SC2162
         read -n 1 -r -s -p "Press any key to close ..." || true
         echo

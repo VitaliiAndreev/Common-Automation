@@ -4,7 +4,7 @@
 # branch when no Ansible content exists (covered without docker so it
 # stays green on any workstation); pass/fail outcomes and config-
 # discovery are covered against the locally-built
-# github-common/ansible-lint image so the bar matches what consumers
+# common-automation/ansible-lint image so the bar matches what consumers
 # actually experience. Docker-dependent tests `skip` cleanly when the
 # engine is unavailable so the suite remains usable without it.
 
