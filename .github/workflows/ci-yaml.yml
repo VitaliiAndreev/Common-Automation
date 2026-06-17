@@ -41,7 +41,7 @@
 #
 #   jobs:
 #     yaml:
-#       uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@master
+#       uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-yaml.yml@master
 
 name: ci-yaml
 
@@ -55,10 +55,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -66,10 +66,10 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/actionlint
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/actionlint
 
   action-validator:
@@ -77,10 +77,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -88,10 +88,10 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/action-validator
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/action-validator
 
   yamllint:
@@ -99,10 +99,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -110,10 +110,10 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/yamllint
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/yamllint
 
   ansible-lint:
@@ -121,10 +121,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -132,8 +132,8 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/ansible-lint
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/ansible-lint

@@ -85,7 +85,7 @@ Create `.github/actions/yamllint/` with `action.yml` and
   `.yaml` files outside the excluded directories.
 
 **Reason:** packaging as a composite action gives downstream repos
-the same `uses: VitaliiAndreev/Common-Automation/.github/actions/yamllint@master`
+the same `uses: Klark-Morrigan/Common-Automation/.github/actions/yamllint@master`
 ergonomics as the existing composite actions, with no
 yamllint-install boilerplate at the call site.
 

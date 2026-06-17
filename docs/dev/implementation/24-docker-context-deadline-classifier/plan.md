@@ -31,7 +31,7 @@ consistent at every commit boundary.
   cases under the existing `# --- classify_docker_registry ---` block:
   - `classify_docker_registry: daemon context deadline matches` - fixture
     is the verbatim error from the
-    [Infrastructure-VM-Ansible feature 02 run](https://github.com/VitaliiAndreev/Infrastructure-VM-Ansible/actions)
+    [Infrastructure-VM-Ansible feature 02 run](https://github.com/Klark-Morrigan/Infrastructure-VM-Ansible/actions)
     that motivated the feature (`Error response from daemon: Get
     "https://registry-1.docker.io/v2/": context deadline exceeded`).
   - `classify_docker_registry: buildx context deadline matches` - fixture

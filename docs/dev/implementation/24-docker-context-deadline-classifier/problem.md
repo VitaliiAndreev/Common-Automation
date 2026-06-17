@@ -21,7 +21,7 @@ explicitly listed "Docker registry I/O timeouts (the recent CI
 failure mode)" as one of the shipped defaults.
 
 A real CI run on
-[Infrastructure-VM-Ansible feature 02](https://github.com/VitaliiAndreev/Infrastructure-VM-Ansible/actions)
+[Infrastructure-VM-Ansible feature 02](https://github.com/Klark-Morrigan/Infrastructure-VM-Ansible/actions)
 hit a transient Docker Hub failure that the primitive correctly
 attempted to retry, then rejected as permanent. The relevant excerpt:
 

@@ -110,7 +110,7 @@ Resulting shape - one line for every consumer:
 ```yaml
 jobs:
   yaml:
-    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@master
+    uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-yaml.yml@master
 ```
 
 `ci-yaml.yml` ends with four jobs:
