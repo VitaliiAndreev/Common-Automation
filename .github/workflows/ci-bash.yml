@@ -12,7 +12,7 @@
 #
 #   jobs:
 #     bash:
-#       uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-bash.yml@master
+#       uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-bash.yml@master
 #
 # Every `uses:` for a Common-Automation composite is a local `./` path,
 # never a fully-qualified `@master` ref. The reason: GitHub Actions
@@ -62,10 +62,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -73,12 +73,12 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: .github
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/shellcheck-bash
         with:
           scan-path: .github
@@ -91,10 +91,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -102,12 +102,12 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/shellcheck-bash
         with:
           scan-path: scripts
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/shellcheck-bash
         with:
           scan-path: scripts
@@ -121,10 +121,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -132,10 +132,10 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/shellcheck-hooks
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/shellcheck-hooks
 
   # Files authored on Windows land in git as mode 0644 by default. On
@@ -148,10 +148,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -159,10 +159,10 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/check-sh-executable
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/check-sh-executable
 
   bats:
@@ -170,10 +170,10 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          repository: VitaliiAndreev/Common-Automation
+          repository: Klark-Morrigan/Common-Automation
           ref: master
           path: .common-automation
           sparse-checkout: |
@@ -181,7 +181,7 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'VitaliiAndreev/Common-Automation'
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
@@ -189,7 +189,7 @@ jobs:
           # the canonical version from .github/lib/versions.env.
           bats-version: ${{ inputs.bats-version }}
 
-      - if: github.repository != 'VitaliiAndreev/Common-Automation'
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/test-bats
         with:
           bats-version: ${{ inputs.bats-version }}

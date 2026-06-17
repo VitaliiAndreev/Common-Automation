@@ -38,7 +38,7 @@ TCP / TLS / EOF / 5xx patterns.
 ## Usage
 
 ```yaml
-- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
+- uses: Klark-Morrigan/Common-Automation/.github/actions/retry@v1
   with:
     command: docker build -t example:ci .
 ```
@@ -46,7 +46,7 @@ TCP / TLS / EOF / 5xx patterns.
 Override the inputs when the defaults are wrong for the call site:
 
 ```yaml
-- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
+- uses: Klark-Morrigan/Common-Automation/.github/actions/retry@v1
   with:
     command: curl -sSfL https://example.test/api
     max_attempts: "3"

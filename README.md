@@ -187,7 +187,7 @@ The defaults match the recommended dockerised-action set above. See
 for the input contract and worked example. One-line usage:
 
 ```yaml
-- uses: VitaliiAndreev/Common-Automation/.github/actions/retry@v1
+- uses: Klark-Morrigan/Common-Automation/.github/actions/retry@v1
   with:
     command: docker build -t example:ci .
 ```
@@ -260,7 +260,7 @@ logic lives in one place.
 Reference any action directly from another repo's workflow:
 
 ```yaml
-- uses: VitaliiAndreev/Common-Automation/.github/actions/assert-secret@v1
+- uses: Klark-Morrigan/Common-Automation/.github/actions/assert-secret@v1
   with:
     value: ${{ secrets.PSGALLERY_API_KEY }}
     name: PSGALLERY_API_KEY
@@ -274,7 +274,7 @@ bash, call the `ci-bash.yml` reusable workflow:
 ```yaml
 jobs:
   bash:
-    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-bash.yml@v1
+    uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-bash.yml@v1
 ```
 
 No inputs needed by default - the workflow scans the caller's
@@ -293,7 +293,7 @@ reusable workflow:
 ```yaml
 jobs:
   yaml:
-    uses: VitaliiAndreev/Common-Automation/.github/workflows/ci-yaml.yml@v1
+    uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-yaml.yml@v1
 ```
 
 No inputs - all four underlying composite actions self-resolve
