@@ -388,7 +388,7 @@ Common-Automation/
 │   ├── _run-tests-bash.sh               # test half: every *.bats suite (native or Docker)
 │   ├── run-ci-yaml-and-bash.sh          # orchestrator: lint + test, combined pass/fail (run everything)
 │   ├── run-ci-yaml-and-bash.bat         # double-clickable Windows launcher for the orchestrator
-│   ├── fix-permissions.sh               # repo-wide manual +x heal for tracked .sh
+│   ├── fix-permissions.sh               # repo-wide manual +x heal for tracked .sh + .githooks/ (extra pathspecs via args)
 │   ├── fix-permissions.bat              # double-clickable Windows launcher
 │   ├── setup-hooks.sh                   # one-time: wire up .githooks/
 │   ├── setup-hooks.bat                  # double-clickable Windows launcher

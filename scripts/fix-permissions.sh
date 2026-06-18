@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-# Repo-wide manual fix for the executable bit on tracked .sh files.
+# Repo-wide manual fix for the executable bit on tracked files that must
+# carry +x: every *.sh (the family-wide rule) and every .githooks/ script.
+# Both are needed on a fresh Linux clone - .sh files for direct execution,
+# the hooks so they fire at all - and both land mode 0644 when authored on
+# Windows. .githooks/ scripts carry no .sh extension, so the *.sh-only CI
+# gate (check-sh-executable) never flags them; healing them here is the only
+# automatic guard they get.
 #
 # The pre-commit hook only fixes files in a given commit, and only in
 # clones where setup-hooks.sh has been run. This runner re-stages +x
-# on every tracked .sh missing it across the whole repo - the way to
-# heal files that slipped in before the hook existed or was installed,
-# which is exactly what the CI gate (check-sh-executable) flags.
+# across the whole repo - the way to heal files that slipped in before the
+# hook existed or was installed.
+#
+# Consumers that need a wider set still (e.g. a Java repo's gradlew, which
+# has no .sh extension) pass the extra pathspecs as positional args; they
+# widen the shared default set, they do not replace it. This is the single
+# source of that default set so consumers need not restate '*.sh'/'.githooks/*'.
 #
 # Reuses the shared fix engine (.github/lib/fix-sh-executable.sh) so
 # the manual path and the hook apply an identical fix.
@@ -42,12 +52,21 @@ source "${script_dir}/../.github/lib/colors.sh"
 # happen as a side effect and persist regardless of the capture. colorize's
 # enable decision was fixed when colors.sh was sourced above, so the green
 # of the per-file lines survives this command substitution.
-echo "=== fixing +x on tracked .sh files in ${target_repo} ==="
-fixed="$(cd "${target_repo}" && fix_sh_executable)"
+# Shared default set every repo heals (*.sh + git hooks), plus any extra
+# pathspecs a consumer appended via positional args (e.g. gradlew). Building
+# one array keeps the status line and the fix call in lockstep.
+#
+# The .githooks/ exclude keeps dotfiles (.gitignore, .keep) non-executable:
+# real git hooks are named without a leading dot (pre-commit, pre-push, ...),
+# so a bare .githooks/* would wrongly +x repo config that lives beside them.
+pathspecs=('*.sh' '.githooks/*' ':(exclude).githooks/.*' "$@")
+
+echo "=== fixing +x on tracked files (${pathspecs[*]}) in ${target_repo} ==="
+fixed="$(cd "${target_repo}" && fix_sh_executable "${pathspecs[@]}")"
 if [[ -n "${fixed}" ]]; then
     echo "${fixed}"
     echo "Done. Review staged mode changes with: git status"
 else
-    clean_msg="$(colorize green "Nothing to fix - all tracked .sh files already have +x.")"
+    clean_msg="$(colorize green "Nothing to fix - all tracked files already have +x.")"
     echo "${clean_msg}"
 fi
