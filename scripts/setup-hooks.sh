@@ -21,7 +21,24 @@ repo_root="${COMMON_AUTOMATION_TARGET_REPO:-$(cd "${script_dir}/.." && pwd)}"
 source "${script_dir}/_hold-window.sh"
 trap hold_window_open EXIT
 
+# Green for success / already-done notices. Emitted only on a tty (and only
+# when tput knows how) so piped/redirected output stays plain ASCII.
+green=""
+reset=""
+if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
+    green="$(tput setaf 2 2>/dev/null || true)"
+    reset="$(tput sgr0 2>/dev/null || true)"
+fi
+
+# Idempotent: if this clone already points at .githooks there is nothing to
+# wire, so say so (in green) and skip the redundant git config write.
+current="$(git -C "${repo_root}" config --get core.hooksPath || true)"
+if [[ "${current}" == ".githooks" ]]; then
+    echo "${green}No need - hooks have been configured already for ${repo_root}. core.hooksPath=.githooks${reset}"
+    exit 0
+fi
+
 git -C "${repo_root}" config core.hooksPath .githooks
 
-echo "Hooks configured for ${repo_root}. core.hooksPath=.githooks"
+echo "${green}Hooks configured for ${repo_root}. core.hooksPath=.githooks${reset}"
 echo "Commits in this clone will now auto-fix .sh permissions."
