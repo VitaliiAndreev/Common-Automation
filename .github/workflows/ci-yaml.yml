@@ -1,19 +1,29 @@
 # Lint YAML across the four complementary surfaces this repo defines.
 #
-# Four jobs run in parallel because the surfaces are independent and
-# the tools complement rather than overlap:
+# The four jobs run sequentially - each `needs:` the one before it -
+# rather than in parallel. Two reasons:
+#   - Fail fast: gate the heavier checks behind the lighter ones so a
+#     PR stops at the smallest problem instead of running every tool
+#     to completion.
+#   - Less PR-check noise: one check entry advances at a time instead
+#     of four lighting up at once.
+#
+# Ordered cheapest-first; the tools complement rather than overlap:
+#   - yamllint runs first. It catches plain-YAML style/syntax issues
+#     (trailing space, duplicate keys, indentation) on everything
+#     outside the actionlint / action-validator surface (Ansible,
+#     dependabot, mkdocs, ...). Valid YAML is the precondition for the
+#     semantic checks that follow, so it gates them.
 #   - actionlint catches semantic workflow problems (expression typos,
 #     missing run/uses, shell-script issues inside `run:` blocks).
 #   - action-validator catches schema-level shape problems on BOTH
 #     workflows AND composite action.yml files.
-#   - yamllint catches plain-YAML style/syntax issues (trailing space,
-#     duplicate keys, indentation) on everything outside the
-#     actionlint / action-validator surface (Ansible, dependabot,
-#     mkdocs, ...).
-#   - ansible-lint catches Ansible-specific issues (playbooks, roles,
-#     ansible.cfg). Auto-skips with a `::notice::` when the consumer
-#     repo has none of `ansible.cfg`, `playbooks/`, `roles/` - so
-#     non-Ansible consumers pay no configuration cost.
+#   - ansible-lint runs last: it is the heaviest (installs ansible) and
+#     most often a no-op. It catches Ansible-specific issues
+#     (playbooks, roles, ansible.cfg) and auto-skips with a
+#     `::notice::` when the consumer repo has none of `ansible.cfg`,
+#     `playbooks/`, `roles/` - so non-Ansible consumers pay no
+#     configuration cost.
 #
 # All four composite actions self-resolve their pinned versions from
 # .github/lib/versions.env, so no inputs are needed. Each action also
@@ -50,50 +60,6 @@ on:
   workflow_call:
 
 jobs:
-  actionlint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/actionlint
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/actionlint
-
-  action-validator:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/action-validator
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/action-validator
-
   yamllint:
     runs-on: ubuntu-latest
     steps:
@@ -116,7 +82,54 @@ jobs:
       - if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/yamllint
 
+  actionlint:
+    needs: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: Klark-Morrigan/Common-Automation
+          ref: master
+          path: .common-automation
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/actionlint
+
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/actionlint
+
+  action-validator:
+    needs: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          repository: Klark-Morrigan/Common-Automation
+          ref: master
+          path: .common-automation
+          sparse-checkout: |
+            .github/actions
+            .github/lib
+          sparse-checkout-cone-mode: false
+
+      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/action-validator
+
+      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/action-validator
+
   ansible-lint:
+    needs: action-validator
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
