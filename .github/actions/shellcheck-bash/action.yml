@@ -14,6 +14,15 @@ inputs:
   scan-path:
     description: Directory (relative to the repo root) to scan for *.sh files.
     required: true
+  exclude-paths:
+    description: >
+      Space-separated directory basenames to prune from the walk (matched
+      at any depth). Lets a scan-path of '.' cover a repo's own production
+      bash while skipping trees linted by another job (.github, scripts),
+      test-only (Tests), or vendored (.venv, node_modules,
+      .common-automation). Empty (default) scans every *.sh under scan-path.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -23,6 +32,8 @@ runs:
       # All logic lives in shellcheck-bash.sh so the strict flag set
       # is a single source of truth - the local pre-push runner
       # references the same file (sourced for the flags array,
-      # executed for the full run).
+      # executed for the full run). exclude-paths is unquoted on purpose
+      # so each space-separated basename arrives as its own argument.
       run: |
-        '${{ github.action_path }}/shellcheck-bash.sh' '${{ inputs.scan-path }}'
+        '${{ github.action_path }}/shellcheck-bash.sh' \
+          '${{ inputs.scan-path }}' ${{ inputs.exclude-paths }}

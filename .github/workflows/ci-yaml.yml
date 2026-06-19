@@ -1,19 +1,18 @@
 # Lint YAML across the four complementary surfaces this repo defines.
 #
-# Four jobs run in parallel because the surfaces are independent and
-# the tools complement rather than overlap:
-#   - actionlint catches semantic workflow problems (expression typos,
-#     missing run/uses, shell-script issues inside `run:` blocks).
-#   - action-validator catches schema-level shape problems on BOTH
-#     workflows AND composite action.yml files.
-#   - yamllint catches plain-YAML style/syntax issues (trailing space,
-#     duplicate keys, indentation) on everything outside the
-#     actionlint / action-validator surface (Ansible, dependabot,
-#     mkdocs, ...).
-#   - ansible-lint catches Ansible-specific issues (playbooks, roles,
-#     ansible.cfg). Auto-skips with a `::notice::` when the consumer
-#     repo has none of `ansible.cfg`, `playbooks/`, `roles/` - so
-#     non-Ansible consumers pay no configuration cost.
+# Everything runs as sequential steps of a single `yaml` job, not as
+# four separate jobs. Two reasons:
+#   - One PR check entry instead of four. GitHub surfaces one status
+#     check per job (`ci-yaml / <job>`), so collapsing to a single job
+#     collapses the PR-check list to a single `ci-yaml / yaml` row.
+#   - Fail fast for free. A step carries an implicit `success()` guard,
+#     so the first failing step skips every step after it - the heavier
+#     checks never run once a lighter one has failed. Steps also share
+#     one checkout instead of paying for one per job.
+#
+# Steps are ordered cheapest-first across four complementary surfaces
+# that the tools cover rather than overlap; each step's own comment
+# states what it catches and why it sits where it does in the order.
 #
 # All four composite actions self-resolve their pinned versions from
 # .github/lib/versions.env, so no inputs are needed. Each action also
@@ -31,9 +30,9 @@
 # eager-resolution failure mode entirely.
 #
 # To make `./` work for external consumers (whose workspace does not
-# contain Common-Automation's composites), each job does a conditional
-# sparse checkout of Common-Automation at master into `.common-automation/` and
-# the external branch of each if-guarded pair points there. The self
+# contain Common-Automation's composites), the job does a conditional
+# sparse checkout of Common-Automation at master into `.common-automation/`
+# and the external branch of each if-guarded pair points there. The self
 # branch points at the consumer's own workspace, so PRs to this repo
 # exercise the PR's own composite code end-to-end.
 #
@@ -50,12 +49,17 @@ on:
   workflow_call:
 
 jobs:
-  actionlint:
+  yaml:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Check out caller repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      # External consumers do not have Common-Automation's composites in
+      # their workspace; stage them once for every `./.common-automation`
+      # step below.
+      - name: Stage Common-Automation composites
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: Klark-Morrigan/Common-Automation
@@ -66,74 +70,44 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/actionlint
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/actionlint
-
-  action-validator:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/action-validator
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/action-validator
-
-  yamllint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+      # yamllint - runs first: valid YAML is the precondition for the
+      # semantic checks below, so it gates them. Catches plain-YAML
+      # style/syntax issues (trailing space, duplicate keys,
+      # indentation) on everything outside the actionlint /
+      # action-validator surface (Ansible, dependabot, mkdocs, ...).
+      - name: yamllint (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/yamllint
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      - name: yamllint (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/yamllint
 
-  ansible-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      # actionlint - semantic workflow problems (expression typos,
+      # missing run/uses, shell-script issues inside `run:` blocks).
+      - name: actionlint (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/actionlint
+      - name: actionlint (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/actionlint
 
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
+      # action-validator - schema-level shape problems on BOTH
+      # workflows AND composite action.yml files.
+      - name: action-validator (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/action-validator
+      - name: action-validator (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/action-validator
 
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+      # ansible-lint - Ansible-specific issues (playbooks, roles,
+      # ansible.cfg). Runs last: its active path is the heaviest (builds
+      # a Docker image), but it auto-skips before any cost when the repo
+      # has no Ansible content (see the composite for the skip/build
+      # details).
+      - name: ansible-lint (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/ansible-lint
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      - name: ansible-lint (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/ansible-lint

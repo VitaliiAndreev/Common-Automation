@@ -15,11 +15,13 @@
 # release always reflects exactly what is merged on the remote.
 #
 # Sequence:
-#   1. obtain the version (argument, else prompt)
-#   2. fetch origin so origin/master is current
-#   3. resolve origin/master to a commit SHA
-#   4. create the immutable vX.Y.Z tag on that SHA and push it
-#   5. force-move the major vX tag to that SHA and force-push it
+#   1. fetch origin (with tags) so origin/master and the tag set are current
+#   2. report the latest existing v-tag (yellow), before prompting, so the
+#      operator chooses the next version with the current one in view
+#   3. obtain the version (argument, else prompt) - guided by step 2
+#   4. resolve origin/master to a commit SHA
+#   5. create the immutable vX.Y.Z tag on that SHA and push it (green)
+#   6. force-move the major vX tag to that SHA and force-push it (green)
 #
 # The semver tag is created WITHOUT -f: if it already exists the run
 # aborts, because re-pointing a published immutable tag is exactly the
@@ -36,13 +38,47 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${script_dir}/_hold-window.sh"
 trap hold_window_open EXIT
 
+# Shared colorize helper for the operator-facing status lines (the
+# latest-tag notice in yellow, the two push confirmations in green).
+# Centralises the TTY / NO_COLOR / FORCE_COLOR gate so this script does
+# not re-derive it - FORCE_COLOR in particular lets the menu runner
+# record the stream and still render the escapes. The enable decision is
+# captured at source time, so colorize must be sourced here, up front.
+# shellcheck source=../.github/lib/colors.sh
+source "${script_dir}/../.github/lib/colors.sh"
+
 # The remote and branch the release tags track. Overridable for forks
 # or repos whose default branch is not master.
 remote="${COMMON_AUTOMATION_RELEASE_REMOTE:-origin}"
 branch="${COMMON_AUTOMATION_RELEASE_BRANCH:-master}"
 
+# Refresh the remote-tracking ref so the SHA below is the real tip. Pull
+# tags too so the latest-tag notice and the immutable-tag clobber guard
+# below see the true published set, not a stale local snapshot. Done
+# before the version prompt so the operator picks the next version with
+# the current latest already on screen.
+git fetch --tags "${remote}" "${branch}"
+
+# Surface the most recent published v-tag up front, so a mistaken bump
+# (going backwards, or skipping a version) is caught before it is even
+# typed. --sort=-v:refname is a version sort, not lexical, so v1.10.0
+# ranks above v1.9.0. Captured in its own assignment (not inline) so
+# git's exit status is not masked; the first line is taken via
+# ${var%%$'\n'*} rather than `| head -1`, which would SIGPIPE git under
+# `set -o pipefail`.
+allVTags="$(git tag --list 'v*' --sort=-v:refname)"
+# Capture colorize's output before echo so its exit status is not masked
+# (shellcheck SC2312 under --enable=all), matching fix-permissions.sh.
+if [[ -n "${allVTags}" ]]; then
+  latestTagMsg="$(colorize yellow "Latest existing v-tag: ${allVTags%%$'\n'*}")"
+else
+  latestTagMsg="$(colorize yellow "No existing v-prefixed tags found.")"
+fi
+echo "${latestTagMsg}"
+
 # Version comes from the first argument; if omitted, prompt for it so a
-# double-click launch is still usable rather than just erroring out.
+# double-click launch is still usable rather than just erroring out. The
+# latest-tag notice above is already printed to guide the choice.
 version="${1:-}"
 if [[ -z "${version}" ]]; then
   read -r -p "Enter version to publish (e.g. v1.2.3): " version
@@ -62,9 +98,6 @@ major="v${bare%%.*}"
 
 echo "=== publishing ${version} (major tag ${major}) from ${remote}/${branch} ==="
 
-# Refresh the remote-tracking ref so the SHA below is the real tip.
-git fetch "${remote}" "${branch}"
-
 # Resolve to an explicit commit SHA and tag that, so neither the local
 # checkout nor a later branch move can affect what gets tagged.
 sha="$(git rev-parse "${remote}/${branch}^{commit}")"
@@ -82,11 +115,13 @@ fi
 # and, being unsigned, would show as unverified.
 git tag "${version}" "${sha}"
 git push "${remote}" "${version}"
-echo "Pushed immutable tag ${version}."
+immutableMsg="$(colorize green "Pushed immutable tag ${version}.")"
+echo "${immutableMsg}"
 
 # Floating major tag - force-move it forward and force-push.
 git tag -f "${major}" "${sha}"
 git push "${remote}" "${major}" --force
-echo "Moved ${major} -> ${version} and force-pushed."
+majorMsg="$(colorize green "Moved ${major} -> ${version} and force-pushed.")"
+echo "${majorMsg}"
 
 echo "Done. Consumers on @${major} now get ${version}; pin exact builds with @${version}."

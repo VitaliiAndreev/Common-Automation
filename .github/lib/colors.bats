@@ -74,3 +74,42 @@ PAIRS
     run color_enabled
     [ "${status}" -eq 1 ]
 }
+
+@test "color_enabled honours the fd argument under the env overrides" {
+    # The env overrides win regardless of which fd is queried; the fd only
+    # decides the fallback TTY check (neither stdout nor stderr is a TTY in
+    # the bats harness, so that fallback path is disabled either way).
+    FORCE_COLOR=1 run color_enabled 2
+    [ "${status}" -eq 0 ]
+
+    NO_COLOR=1 run color_enabled 2
+    [ "${status}" -eq 1 ]
+
+    run color_enabled 2
+    [ "${status}" -eq 1 ]
+}
+
+@test "colorize_fd wraps text in the colour code when FORCE_COLOR is set" {
+    FORCE_COLOR=1 run colorize_fd 2 green "hello"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "$(printf '\033[32mhello\033[0m')" ]
+}
+
+@test "colorize_fd emits plain text when colour is disabled (no force, not a TTY)" {
+    run colorize_fd 2 green "hello"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "hello" ]
+}
+
+@test "colorize_fd leaves text unchanged for an unknown colour name" {
+    FORCE_COLOR=1 run colorize_fd 2 chartreuse "hello"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "hello" ]
+}
+
+@test "colorize is the stdout-gated wrapper over colorize_fd (back-compatible)" {
+    # colorize <name> <text> must behave exactly as colorize_fd 1 <name>.
+    FORCE_COLOR=1 run colorize red "x"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "$(printf '\033[31mx\033[0m')" ]
+}

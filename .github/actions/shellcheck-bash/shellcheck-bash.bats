@@ -49,3 +49,17 @@ SCRIPT="${BATS_TEST_DIRNAME}/shellcheck-bash.sh"
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"skipping"* ]]
 }
+
+@test "an exclude prunes that directory so its .sh files are not scanned" {
+    # The only .sh lives inside an excluded dir; pruning it must leave
+    # nothing to lint, so the run skips (exit 0) rather than invoking
+    # shellcheck on the vendored file. Asserting via the skip path keeps
+    # the test independent of whether a shellcheck binary is installed -
+    # the same reason the other executed-mode tests stop before the runner.
+    root="${BATS_TEST_TMPDIR}/proj"
+    mkdir -p "${root}/.venv"
+    printf '#!/usr/bin/env bash\n' > "${root}/.venv/vendored.sh"
+    run "${SCRIPT}" "${root}" .venv
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"skipping"* ]]
+}

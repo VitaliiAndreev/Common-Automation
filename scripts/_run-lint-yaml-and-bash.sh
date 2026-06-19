@@ -78,12 +78,16 @@ run_shellcheck_flagged() {
 run_shellcheck_on() {
     local rel_path="$1"
     local label="$2"
+    shift 2
+    local excludes=("$@")
     local helper="${common_automation_root}/.github/actions/shellcheck-bash/shellcheck-bash.sh"
 
     echo "=== shellcheck ${label} (${rel_path}) ==="
 
     if command -v shellcheck >/dev/null 2>&1; then
-        (cd "${repo_root}" && bash "${helper}" "${rel_path}")
+        # The helper owns the prune logic; pass any exclude basenames
+        # through so the native path matches CI exactly.
+        (cd "${repo_root}" && bash "${helper}" "${rel_path}" "${excludes[@]}")
         return $?
     fi
 
@@ -92,7 +96,18 @@ run_shellcheck_on() {
         return 0
     fi
     local files
-    files=$(cd "${repo_root}" && find "${rel_path}" -name '*.sh')
+    if (( ${#excludes[@]} )); then
+        # Mirror the helper's prune for the docker fallback: drop any
+        # directory whose basename matches an exclude before globbing *.sh.
+        local name_tests=() d
+        for d in "${excludes[@]}"; do
+            if (( ${#name_tests[@]} )); then name_tests+=(-o); fi
+            name_tests+=(-name "${d}")
+        done
+        files=$(cd "${repo_root}" && find "${rel_path}" -type d \( "${name_tests[@]}" \) -prune -o -name '*.sh' -print)
+    else
+        files=$(cd "${repo_root}" && find "${rel_path}" -name '*.sh')
+    fi
     if [[ -z "${files}" ]]; then
         echo "::notice::no ${rel_path}/**/*.sh files, skipping"
         return 0
@@ -193,6 +208,19 @@ echo
 
 if ! run_shellcheck_on scripts runners; then
     failures+=("shellcheck-runners")
+fi
+echo
+
+# Domain bash: the repo's own production bash outside .github/scripts
+# (e.g. ops/). Scan-by-exclusion mirrors the ci-bash shellcheck-domain
+# job so a new production directory is gated automatically. The excludes
+# match that job verbatim - the trees already covered by another check
+# (.github, scripts, .githooks), the test suites (Tests/tests), and
+# vendored or CI-injected trees (.venv, node_modules, .common-automation,
+# .git) - so local and CI cannot drift.
+if ! run_shellcheck_on . domain \
+        .git .github scripts Tests tests .venv node_modules .common-automation .githooks; then
+    failures+=("shellcheck-domain")
 fi
 echo
 

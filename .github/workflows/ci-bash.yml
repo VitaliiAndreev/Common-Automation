@@ -1,14 +1,29 @@
 # Lint and test bash.
 #
-# Production bash (.github/actions/) and runner bash (scripts/) get
-# separate lint jobs so failures are attributable at a glance and the
-# two categories can diverge later if their bars need to differ. Both
-# currently run at shellcheck's strictest setting via the
-# shellcheck-bash composite action under .github/actions/.
+# Production bash (.github/), runner bash (scripts/), and domain bash
+# (the repo's own production bash outside those, e.g. ops/) get separate
+# lint steps so failures are attributable at a glance in the job log and
+# the categories can diverge later if their bars need to differ. All run
+# at shellcheck's strictest setting via the shellcheck-bash composite.
 #
-# Reusable: other repos call this workflow with no inputs. It scans
-# the caller's `.github/actions/` and `scripts/` directories; missing
-# directories are skipped silently.
+# Everything runs as sequential steps of a single `bash` job, not as
+# separate jobs. Two reasons:
+#   - One PR check entry instead of six. GitHub surfaces one status
+#     check per job (`ci-bash / <job>`), so collapsing to a single job
+#     collapses the PR-check list to a single `ci-bash / bash` row.
+#   - Fail fast for free. A step carries an implicit `success()` guard,
+#     so the first failing step skips every step after it - the heavier
+#     checks never run once a lighter one has failed. Steps also share
+#     one checkout instead of paying for one per job.
+#
+# Steps are ordered cheapest-first, lint before test; each step's own
+# comment states what it covers and why it sits where it does in the
+# order.
+#
+# Reusable: other repos call this workflow with no inputs. It scans the
+# caller's `.github/` and `scripts/` directories explicitly, the rest of
+# the repo (domain) by exclusion, and the git hooks; missing or empty
+# trees are skipped silently, so a repo with no domain bash is unaffected.
 #
 #   jobs:
 #     bash:
@@ -24,9 +39,9 @@
 # eager-resolution failure mode entirely.
 #
 # To make `./` work for external consumers (whose workspace does not
-# contain Common-Automation's composites), each job does a conditional
-# sparse checkout of Common-Automation at master into `.common-automation/` and
-# the external branch of each if-guarded pair points there. The self
+# contain Common-Automation's composites), the job does a conditional
+# sparse checkout of Common-Automation at master into `.common-automation/`
+# and the external branch of each if-guarded pair points there. The self
 # branch points at the consumer's own workspace, so PRs to this repo
 # exercise the PR's own composite code end-to-end.
 
@@ -49,20 +64,17 @@ on:
         default: ''
 
 jobs:
-  # Production bash: everything under .github held to the strict bar.
-  # That spans the composite actions in .github/actions/ and the
-  # shared helpers in .github/lib - some consumer-invoked
-  # (get-bats-version.sh, called by the test-bats action) and some
-  # local-only (fix-sh-executable.sh, used by the hook and the
-  # fix-permissions runner). Scanning all of .github covers them
-  # regardless. Strictest setting non-negotiable - a regression in an
-  # action ships to every downstream repo.
-  shellcheck-production:
+  bash:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Check out caller repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      # External consumers do not have Common-Automation's composites in
+      # their workspace; stage them once for every `./.common-automation`
+      # step below.
+      - name: Stage Common-Automation composites
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           repository: Klark-Morrigan/Common-Automation
@@ -73,123 +85,98 @@ jobs:
             .github/lib
           sparse-checkout-cone-mode: false
 
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/shellcheck-bash
-        with:
-          scan-path: .github
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/shellcheck-bash
-        with:
-          scan-path: .github
-
-  # Runner bash: maintainer-side dev scripts (test runners, helpers).
-  # Same strict bar as production today; the split exists so the bars
-  # can diverge later without re-architecting the workflow.
-  shellcheck-runners:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/shellcheck-bash
-        with:
-          scan-path: scripts
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/shellcheck-bash
-        with:
-          scan-path: scripts
-
-  # Git hooks under .githooks/ have no .sh extension (git requires
-  # exact filenames like pre-commit), so the *.sh-globbing
-  # shellcheck-bash action cannot reach them via scan-path. The
-  # shellcheck-hooks composite wraps the discovery + lint.
-  shellcheck-hooks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
-        uses: ./.github/actions/shellcheck-hooks
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: ./.common-automation/.github/actions/shellcheck-hooks
-
-  # Files authored on Windows land in git as mode 0644 by default. On
-  # Linux runners that breaks `bats run` (EACCES -> exit 126) and any
-  # other direct script execution. The bats job catches this too, but
-  # its symptom ("every test fails with status mismatch") is opaque;
-  # this job gives the same failure a one-line, copy-pasteable fix.
-  check-sh-executable:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
-
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+      # check-sh-executable - cheapest gate, common Windows failure.
+      # Files authored on Windows land in git as mode 0644 by default;
+      # on Linux runners that breaks `bats run` (EACCES -> exit 126) and
+      # any other direct script execution. The bats step catches this
+      # too, but its symptom is opaque; this gives a one-line fix.
+      - name: check-sh-executable (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/check-sh-executable
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      - name: check-sh-executable (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/check-sh-executable
 
-  bats:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      # shellcheck-hooks - git hooks under .githooks/ have no .sh
+      # extension (git requires exact names like pre-commit), so the
+      # *.sh-globbing shellcheck-bash action cannot reach them via
+      # scan-path; this composite wraps the discovery + lint.
+      - name: shellcheck-hooks (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/shellcheck-hooks
+      - name: shellcheck-hooks (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-hooks
 
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      # shellcheck-runners - maintainer-side dev scripts (test runners,
+      # helpers). Same strict bar as production today; the split exists
+      # so the bars can diverge later without re-architecting.
+      - name: shellcheck-runners (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/shellcheck-bash
         with:
-          repository: Klark-Morrigan/Common-Automation
-          ref: master
-          path: .common-automation
-          sparse-checkout: |
-            .github/actions
-            .github/lib
-          sparse-checkout-cone-mode: false
+          scan-path: scripts
+      - name: shellcheck-runners (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-bash
+        with:
+          scan-path: scripts
 
-      - if: github.repository == 'Klark-Morrigan/Common-Automation'
+      # shellcheck-production - everything under .github held to the
+      # strict bar: the composite actions in .github/actions/ and the
+      # shared helpers in .github/lib (some consumer-invoked, some
+      # local-only). Strictest setting non-negotiable - a regression in
+      # an action ships to every downstream repo.
+      - name: shellcheck-production (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: .github
+      - name: shellcheck-production (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-bash
+        with:
+          scan-path: .github
+
+      # shellcheck-domain - the repo's own production bash outside
+      # .github/ and scripts/ (e.g. Infrastructure-Vm-Ansible's ops/).
+      # Scans the whole workspace and prunes the trees the other steps
+      # already cover (.github, scripts, .githooks), the test suites
+      # (Tests/tests), and vendored or CI-injected trees (.venv,
+      # node_modules, .common-automation, .git). Gating by exclusion -
+      # rather than naming each domain directory - keeps a newly added
+      # production directory covered automatically, in every consumer
+      # repo, with no per-repo wiring to drift. Repos whose bash lives
+      # entirely under .github/scripts get an empty walk and skip.
+      - name: shellcheck-domain (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
+        uses: ./.github/actions/shellcheck-bash
+        with:
+          scan-path: .
+          exclude-paths: >-
+            .git .github scripts Tests tests .venv node_modules
+            .common-automation .githooks
+      - name: shellcheck-domain (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
+        uses: ./.common-automation/.github/actions/shellcheck-bash
+        with:
+          scan-path: .
+          exclude-paths: >-
+            .git .github scripts Tests tests .venv node_modules
+            .common-automation .githooks
+
+      # bats - the test suite, heaviest step, gated last behind every
+      # lint so a lint failure short-circuits before the suite spins up.
+      - name: bats (self)
+        if: github.repository == 'Klark-Morrigan/Common-Automation'
         uses: ./.github/actions/test-bats
         with:
           # Pass through to the action; empty value (push/PR triggers,
           # or workflow_call without override) makes the action read
           # the canonical version from .github/lib/versions.env.
           bats-version: ${{ inputs.bats-version }}
-
-      - if: github.repository != 'Klark-Morrigan/Common-Automation'
+      - name: bats (consumer)
+        if: github.repository != 'Klark-Morrigan/Common-Automation'
         uses: ./.common-automation/.github/actions/test-bats
         with:
           bats-version: ${{ inputs.bats-version }}

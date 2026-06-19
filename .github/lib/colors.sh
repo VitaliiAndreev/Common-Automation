@@ -20,27 +20,39 @@
 #                             but still renders escapes)
 #
 # API:
-#   colorize <name> <text...> - echo <text> wrapped in <name>'s colour, with
-#                               reset appended. Unknown <name>, or colour
-#                               disabled, yields the text unchanged - so
-#                               captured/CI output stays plain ASCII.
-#   color_enabled             - return 0 when colour is on, 1 otherwise.
+#   colorize <name> <text...>     - echo <text> wrapped in <name>'s colour,
+#                                   reset appended. Gated on stdout's TTY.
+#                                   Unknown <name>, or colour disabled,
+#                                   yields the text unchanged - so
+#                                   captured/CI output stays plain ASCII.
+#   colorize_fd <fd> <name> <txt> - as colorize, but gated on <fd>'s TTY
+#                                   (1=stdout, 2=stderr). Lets a stderr
+#                                   writer (e.g. a logger) tint only when
+#                                   stderr itself is a terminal, so a
+#                                   `cmd 2>file` capture stays plain ASCII.
+#   color_enabled [fd]            - return 0 when colour is on for <fd>
+#                                   (default 1=stdout, 2=stderr), else 1.
 
-# Capture the sourcing script's stdout TTY-ness once. See the header for why
-# a live check inside colorize would be wrong under command substitution.
-if [[ -t 1 ]]; then
-    _COLOR_STDOUT_TTY=1
-else
-    _COLOR_STDOUT_TTY=0
-fi
+# Capture the sourcing script's stdout AND stderr TTY-ness once, at source
+# time. See the header for why a live check inside colorize would be wrong
+# under command substitution (fd 1 becomes a pipe). Both fds are captured
+# so a stderr writer can gate on stderr's terminal-ness independently.
+if [[ -t 1 ]]; then _COLOR_STDOUT_TTY=1; else _COLOR_STDOUT_TTY=0; fi
+if [[ -t 2 ]]; then _COLOR_STDERR_TTY=1; else _COLOR_STDERR_TTY=0; fi
 
 # Colour is off when explicitly suppressed (NO_COLOR wins over everything),
-# on when explicitly forced, and otherwise tracks whether stdout was a
-# terminal.
+# on when explicitly forced, and otherwise tracks whether the requested fd
+# was a terminal. $1 selects the fd: 2 = stderr, anything else (default) =
+# stdout. The fd argument lets a stderr logger avoid writing escape bytes
+# into a `cmd 2>file` capture while stdout is still a TTY.
 color_enabled() {
     [[ -n "${NO_COLOR:-}" ]] && return 1
     [[ -n "${FORCE_COLOR:-}" ]] && return 0
-    [[ "${_COLOR_STDOUT_TTY}" == 1 ]]
+    if [[ "${1:-1}" == 2 ]]; then
+        [[ "${_COLOR_STDERR_TTY}" == 1 ]]
+    else
+        [[ "${_COLOR_STDOUT_TTY}" == 1 ]]
+    fi
 }
 
 # Map a colour name to its SGR escape. Kept as a case (not an associative
@@ -61,14 +73,16 @@ _color_code() {
     esac
 }
 
-# echo <text> wrapped in <name>'s colour, reset appended. No trailing newline
-# (callers add their own). Colour disabled or an unknown name -> plain text.
-colorize() {
-    local name="${1:?colorize: colour name required}"
-    shift
+# echo <text> wrapped in <name>'s colour for output on <fd>, reset appended.
+# No trailing newline (callers add their own). Colour disabled for <fd> or an
+# unknown name -> plain text. <fd>: 1 = stdout, 2 = stderr.
+colorize_fd() {
+    local fd="${1:?colorize_fd: output fd required}"
+    local name="${2:?colorize_fd: colour name required}"
+    shift 2
     local text="$*"
     local code reset
-    if ! color_enabled || ! code="$(_color_code "${name}")"; then
+    if ! color_enabled "${fd}" || ! code="$(_color_code "${name}")"; then
         printf '%s' "${text}"
         return 0
     fi
@@ -76,4 +90,10 @@ colorize() {
     # is observed rather than masked - shellcheck SC2312 under --enable=all.
     reset="$(_color_code reset)"
     printf '%s%s%s' "${code}" "${text}" "${reset}"
+}
+
+# Stdout-gated wrapper - the common case, used inside `$(colorize ...)`.
+# Back-compatible shim over colorize_fd so existing callers are unchanged.
+colorize() {
+    colorize_fd 1 "$@"
 }
