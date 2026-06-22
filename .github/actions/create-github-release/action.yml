@@ -30,6 +30,15 @@ inputs:
     description: Mark the release as a prerelease ('true'/'false').
     required: false
     default: 'false'
+  files:
+    description: >
+      Newline-separated list of asset files to attach to the release (e.g. a
+      built zip or tarball). Empty (default) cuts a release with no assets -
+      the prior behaviour, so existing callers are unchanged. Lets an
+      artifact-bearing stack (mod zip, NuGet, ...) reuse this tail instead of
+      bolting on its own upload step.
+    required: false
+    default: ''
   token:
     description: >
       Token gh uses to create the release. Defaults to the workflow's
@@ -48,6 +57,7 @@ runs:
         TAG: ${{ inputs.tag }}
         DRAFT: ${{ inputs.draft }}
         PRERELEASE: ${{ inputs.prerelease }}
+        FILES: ${{ inputs.files }}
         GH_TOKEN: ${{ inputs.token }}
       # github.action_path resolves to where this action's files were checked
       # out, so the script is found regardless of the caller repo's layout.

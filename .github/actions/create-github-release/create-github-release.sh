@@ -11,6 +11,7 @@
 #   TAG         Git tag to attach the release to.  Default: VERSION
 #   DRAFT       'true' to create a draft release.  Default: false
 #   PRERELEASE  'true' to mark as a prerelease.    Default: false
+#   FILES       Newline-separated asset paths to attach. Default: none
 #
 # Requires gh on PATH and GH_TOKEN in the environment, plus the caller's
 # workflow granting 'permissions: contents: write'. Fails if the resolved
@@ -32,6 +33,7 @@ version="${VERSION:-}"
 tag="${TAG:-}"
 draft="${DRAFT:-false}"
 prerelease="${PRERELEASE:-false}"
+files="${FILES:-}"
 
 if [[ ! -f "${changelog}" ]]; then
     echo "::error::create-github-release: changelog not found at '${changelog}'." >&2
@@ -59,6 +61,15 @@ fi
 create_args=( release create "${tag}" --title "${version}" --notes "${notes}" --verify-tag )
 [[ "${draft}" == "true" ]]      && create_args+=( --draft )
 [[ "${prerelease}" == "true" ]] && create_args+=( --prerelease )
+
+# Attach asset files when supplied. gh takes asset paths as trailing
+# positional args, so they go after the flags. Each non-blank line of FILES is
+# one asset; empty FILES leaves the release asset-less (historical behaviour).
+if [[ -n "${files//[[:space:]]/}" ]]; then
+    while IFS= read -r asset; do
+        [[ -n "${asset//[[:space:]]/}" ]] && create_args+=( "${asset}" )
+    done <<< "${files}"
+fi
 
 echo "create-github-release: creating release for tag '${tag}' (version '${version}') from '${changelog}'."
 gh "${create_args[@]}"

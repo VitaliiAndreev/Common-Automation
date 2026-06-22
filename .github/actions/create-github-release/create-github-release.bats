@@ -37,7 +37,7 @@ STUB
 MD
 
     # Clear the input env so each test sets only what it needs.
-    unset VERSION TAG DRAFT PRERELEASE
+    unset VERSION TAG DRAFT PRERELEASE FILES
     export GH_TOKEN="stub-token"
 }
 
@@ -98,6 +98,28 @@ teardown() {
     PRERELEASE=true run "${SCRIPT}"
     [ "${status}" -eq 0 ]
     [[ "$(cat "${TMP}/gh.args")" == *"--prerelease"* ]]
+}
+
+@test "attaches a single asset path when FILES is set" {
+    touch "${TMP}/mod-1.0.0.zip"
+    FILES="${TMP}/mod-1.0.0.zip" run "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    grep -qx "${TMP}/mod-1.0.0.zip" "${TMP}/gh.args"
+}
+
+@test "attaches every non-blank line of a multi-asset FILES" {
+    touch "${TMP}/a.zip" "${TMP}/b.zip"
+    FILES="$(printf '%s\n\n%s\n' "${TMP}/a.zip" "${TMP}/b.zip")" run "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    grep -qx "${TMP}/a.zip" "${TMP}/gh.args"
+    grep -qx "${TMP}/b.zip" "${TMP}/gh.args"
+}
+
+@test "attaches no asset args when FILES is empty" {
+    run "${SCRIPT}"
+    [ "${status}" -eq 0 ]
+    # No asset path means no '.zip' positional reaches gh.
+    [[ "$(cat "${TMP}/gh.args")" != *".zip"* ]]
 }
 
 @test "fails without calling gh when the version has no section" {

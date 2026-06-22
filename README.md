@@ -46,7 +46,7 @@ PowerShell, .NET, and future stacks without dragging tooling along.
 
 | Action                                          | Purpose                                                           |
 |-------------------------------------------------|-------------------------------------------------------------------|
-| `.github/actions/create-github-release/`        | Creates a GitHub Release for a tag, body taken from the matching `CHANGELOG.md` section (Keep a Changelog). Stack-agnostic - any artifact stream (PowerShell module, NuGet, ...) reuses it; fails if the version has no changelog section. |
+| `.github/actions/create-github-release/`        | Creates a GitHub Release for a tag, body taken from the matching `CHANGELOG.md` section (Keep a Changelog). Stack-agnostic - any artifact stream (PowerShell module, NuGet, ZIP, ...) reuses it; fails if the version has no changelog section. Optional `files` input (newline-separated) attaches release assets. |
 
 ## Retry primitive
 
