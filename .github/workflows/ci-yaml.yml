@@ -41,16 +41,56 @@
 #   jobs:
 #     yaml:
 #       uses: Klark-Morrigan/Common-Automation/.github/workflows/ci-yaml.yml@master
+#
+# Runner selection: each call picks its machine via the `runner` input
+# (a per-call / workflow_dispatch override), else the `CI_YAML_RUNNER`
+# repo/org variable, else the ubuntu-latest hosted default. The variable
+# is read from the CALLER's repository (the `vars` context in a reusable
+# workflow resolves to the caller, not this repo), so a private consumer
+# routes the yaml gate onto its own runner by setting the variable once
+# in its settings - no workflow fork - while public repos that set
+# nothing stay on free hosted runners. Values are JSON label arrays,
+# e.g. `["ubuntu-latest"]` or `["self-hosted","linux"]`.
 
 name: ci-yaml
 
 on:
   pull_request:
+  # Manual runs let a maintainer override the runner for a one-off; this
+  # is the only override path for this repo's own runs, since
+  # pull_request cannot carry inputs.
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: >-
+          Optional runs-on override for this run, as a JSON label array
+          (e.g. `["ubuntu-latest"]` or `["self-hosted","linux"]`). Takes
+          precedence over the CI_YAML_RUNNER variable.
+        required: false
+        type: string
+        default: ''
   workflow_call:
+    inputs:
+      runner:
+        description: >-
+          Optional runs-on override, as a JSON label array (e.g.
+          `["ubuntu-latest"]`). Takes precedence over the CI_YAML_RUNNER
+          variable; consumers pass it in `with:` to override per-call.
+          Leave empty to use the variable.
+        required: false
+        type: string
+        default: ''
 
 jobs:
   yaml:
-    runs-on: ubuntu-latest
+    # Runner selection, highest precedence first: the `runner` input (a
+    # one-off override), else the `CI_YAML_RUNNER` variable (read from
+    # the caller's repository), else the ubuntu-latest hosted default.
+    # Each value is a JSON label array, e.g. ["ubuntu-latest"] or
+    # ["self-hosted","linux"].
+    runs-on: ${{ inputs.runner != '' && fromJSON(inputs.runner)
+      || vars.CI_YAML_RUNNER != '' && fromJSON(vars.CI_YAML_RUNNER)
+      || fromJSON('["ubuntu-latest"]') }}
     steps:
       - name: Check out caller repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
